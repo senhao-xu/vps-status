@@ -1,0 +1,16 @@
+{"file":".trellis/spec/backend/index.md","reason":"Backend pre-development routing and quality gates."}
+{"file":".trellis/spec/backend/directory-structure.md","reason":"Control, Agent, protocol, security, and storage package ownership."}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"Hard control.db/telemetry.db boundary, migrations, SQLite, and degradation rules."}
+{"file":".trellis/spec/backend/error-handling.md","reason":"CLI, API, worker, and degraded-mode error contracts."}
+{"file":".trellis/spec/backend/logging-guidelines.md","reason":"Structured operational events and mandatory secret redaction."}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Go tests, race/vet/build-tag checks, and security scope gates."}
+{"file":".trellis/spec/frontend/index.md","reason":"Frontend pre-development routing and embedded-build quality gates."}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"React feature ownership and Vite-to-Go asset boundary."}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Component composition, accessibility, styling, and test conventions."}
+{"file":".trellis/spec/frontend/hook-guidelines.md","reason":"Effect, cancellation, SSE, and hook ownership conventions."}
+{"file":".trellis/spec/frontend/state-management.md","reason":"Local/server/live/auth state boundaries and public/admin separation."}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"Strict TypeScript and single runtime-decoder boundary."}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Frozen dependencies, frontend checks, and tagged Go embed verification."}
+{"file":".trellis/tasks/10-09-server-monitor-research/research/monitor-komari-deep-dive.md","reason":"Source-backed Agent/Control boundary and credential/security lessons."}
+{"file":".trellis/tasks/10-09-server-monitor-research/research/storage-retention.md","reason":"Source-backed two-database, rollup, retention, WAL, vacuum, and disk-guard evidence."}
+{"file":".trellis/tasks/10-09-server-monitor-research/research/tcp-probe-limits.md","reason":"Source-backed TCP task limits and Agent-side anti-abuse requirements."}

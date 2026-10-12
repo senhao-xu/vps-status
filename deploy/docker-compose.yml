@@ -1,0 +1,31 @@
+services:
+  control:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      args:
+        VERSION: ${VPS_STATUS_VERSION:-dev}
+        COMMIT: ${VPS_STATUS_COMMIT:-unknown}
+    image: vps-status-control:${VPS_STATUS_VERSION:-dev}
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    volumes:
+      - control-data:/data
+    ports:
+      - "127.0.0.1:${VPS_STATUS_PORT:-8080}:8080"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "/vps-status-control", "healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  control-data:

@@ -1,0 +1,15 @@
+{"file":".trellis/spec/backend/index.md","reason":"Check backend work against project-specific routing and gates."}
+{"file":".trellis/spec/backend/directory-structure.md","reason":"Check package ownership and dependency direction."}
+{"file":".trellis/spec/backend/database-guidelines.md","reason":"Check storage separation, migrations, SQLite, and graceful degradation."}
+{"file":".trellis/spec/backend/error-handling.md","reason":"Check stable errors, cancellation, and degraded-mode behavior."}
+{"file":".trellis/spec/backend/logging-guidelines.md","reason":"Check operational event quality and secret redaction."}
+{"file":".trellis/spec/backend/quality-guidelines.md","reason":"Check Go test/race/vet/build-tag and security scope requirements."}
+{"file":".trellis/spec/frontend/index.md","reason":"Check frontend work against embedded-build quality gates."}
+{"file":".trellis/spec/frontend/directory-structure.md","reason":"Check UI ownership and generated-asset boundary."}
+{"file":".trellis/spec/frontend/component-guidelines.md","reason":"Check accessibility, composition, styling, and component tests."}
+{"file":".trellis/spec/frontend/hook-guidelines.md","reason":"Check effect cleanup, cancellation, and subscription bounds."}
+{"file":".trellis/spec/frontend/state-management.md","reason":"Check state ownership and public/admin data separation."}
+{"file":".trellis/spec/frontend/type-safety.md","reason":"Check strict types and runtime validation of external data."}
+{"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Check frozen dependencies and frontend/tagged-Go verification."}
+{"file":".trellis/tasks/10-09-server-monitor-research/research/storage-retention.md","reason":"Verify telemetry never grows control.db and retention/reclaim matches researched safeguards."}
+{"file":".trellis/tasks/10-09-server-monitor-research/research/tcp-probe-limits.md","reason":"Verify Control and Agent independently enforce the agreed TCP limits."}

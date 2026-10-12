@@ -1,0 +1,16 @@
+.git
+.github
+.trellis
+.agents
+.claude
+.codex
+.opencode
+bin
+dist
+data
+web/node_modules
+web/coverage
+internal/control/webui/dist
+*.db
+*.db-wal
+*.db-shm

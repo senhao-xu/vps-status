@@ -1,0 +1,9 @@
+ALTER TABLE nodes ADD COLUMN group_name TEXT NOT NULL DEFAULT '';
+ALTER TABLE nodes ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0 CHECK (hidden IN (0, 1));
+ALTER TABLE nodes ADD COLUMN hostname TEXT NOT NULL DEFAULT '';
+ALTER TABLE nodes ADD COLUMN os TEXT NOT NULL DEFAULT '';
+ALTER TABLE nodes ADD COLUMN kernel TEXT NOT NULL DEFAULT '';
+ALTER TABLE nodes ADD COLUMN architecture TEXT NOT NULL DEFAULT '';
+ALTER TABLE nodes ADD COLUMN virtualization TEXT NOT NULL DEFAULT '';
+
+CREATE INDEX nodes_active_group_idx ON nodes(deleted_at, group_name, name);

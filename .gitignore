@@ -1,0 +1,26 @@
+# Go build and test outputs
+/bin/
+/dist/
+/coverage/
+/control
+/agent
+*.test
+
+# Web dependencies and generated assets
+/web/node_modules/
+/web/coverage/
+/internal/control/webui/dist/
+
+# Local runtime data
+/data/
+*.db
+*.db-shm
+*.db-wal
+
+# Local environment and editor files
+.env
+.env.*
+!.env.example
+.DS_Store
+.idea/
+.vscode/

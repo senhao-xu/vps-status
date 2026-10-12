@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify Go formatting
+        run: test -z "$(gofmt -l .)"
+
+      - name: Test and vet Go code
+        run: |
+          go test ./...
+          go test -race ./...
+          go vet ./...
+
+      - name: Install web dependencies
+        run: pnpm --dir web install --frozen-lockfile
+
+      - name: Check and build web app
+        run: |
+          pnpm --dir web lint
+          pnpm --dir web typecheck
+          pnpm --dir web test
+          pnpm --dir web build
+
+      - name: Build release-shaped binaries
+        run: |
+          go test -tags webui ./...
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -tags webui ./cmd/control
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -tags webui ./cmd/control
+          GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build ./cmd/agent
+          GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build ./cmd/agent
+
+      - name: Validate deployment and shell assets
+        run: |
+          docker compose -f deploy/docker-compose.yml config
+          sh -n scripts/release.sh deploy/systemd/install-agent.sh deploy/systemd/uninstall-agent.sh
+
+      - name: Bounded end-to-end load smoke
+        run: go run ./tests/load --agents 5 --tasks-per-agent 4 --duration 15s
