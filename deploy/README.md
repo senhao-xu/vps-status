@@ -26,13 +26,38 @@ Internet.
 
 ## Agent systemd installation
 
-Copy the matching checksum-verified Agent binary and this directory to the
-host, then run the installer as root. Root is needed only to install files and
-the service account; runtime uses the locked `vps-status-agent` system user.
+The administrator node-enrollment screen is the preferred path. Its first
+command downloads the Control-pinned Release from the unauthenticated fixed
+`/install-agent.sh` endpoint, detects Linux amd64/arm64, verifies the Agent,
+installer, and systemd unit against `SHA256SUMS`, then enrolls and starts the
+service. Root is needed only to install files and the service account; runtime
+uses the locked `vps-status-agent` system user. The one-time token is consumed
+on successful enrollment and is never printed by either installer. The copied
+command itself can remain in shell history, so use the shortest practical TTL,
+run it only on the intended host, and generate a new enrollment if it expires
+or may have been exposed.
+
+For audit-sensitive environments, download and inspect the public bootstrap
+script before passing the two one-time arguments shown by the UI:
+
+```bash
+curl -fsSLo /tmp/vps-status-install.sh https://monitor.example.com/install-agent.sh
+less /tmp/vps-status-install.sh
+sudo sh /tmp/vps-status-install.sh https://monitor.example.com ONE_TIME_ENROLLMENT_TOKEN
+```
+
+Control defaults to the version embedded in its binary and the versioned
+GitHub Release directory. Override a mirror or version with
+`--agent-release-base-url` and `--agent-release-version`; the base URL must be
+HTTPS and the version is restricted to a path-safe identifier. A source build
+whose version is `dev` must be pointed at an existing published Agent release.
+
+The manual fallback is to copy the matching checksum-verified Agent binary and
+the adjacent Release installer/unit to the host, then run:
 
 ```bash
 sha256sum -c SHA256SUMS --ignore-missing
-sudo deploy/systemd/install-agent.sh ./vps-status-agent-linux-amd64 \
+sudo ./install-agent.sh ./vps-status-agent-linux-amd64 \
   https://monitor.example.com ONE_TIME_ENROLLMENT_TOKEN
 systemctl status vps-status-agent
 ```
@@ -42,7 +67,7 @@ credential and restarts the service with the newly installed binary. For an
 upgrade, the binary alone is sufficient:
 
 ```bash
-sudo deploy/systemd/install-agent.sh ./vps-status-agent-linux-amd64
+sudo ./install-agent.sh ./vps-status-agent-linux-amd64
 ```
 
 The service has no inbound listener and receives no writable system paths. Its

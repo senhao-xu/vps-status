@@ -29,6 +29,27 @@
 - Reuse CSS custom properties for stable colors/spacing before duplicating magic values across feature styles.
 - Adding a styling framework is a design change, not an incidental component dependency.
 
+### Localization and themes
+
+- Put reusable static UI copy in the strictly typed dictionaries in
+  `src/i18n.tsx`; render it through `useI18n().t`. Dynamic server error text and
+  operator-provided names/descriptions remain unchanged.
+- Keep the English dictionary as the translation-key owner and type every
+  other dictionary as `Record<TranslationKey, string>`, so missing or extra
+  entries fail type checking. Use named placeholders such as
+  `t('onlineCount', { online, total })` for dynamic copy.
+- Route all theme-dependent colors through CSS custom properties. Classic dark tokens
+  live in `:root`; light overrides live in `:root[data-theme="light"]`.
+  Emerald overrides use the independent `data-visual-theme="emerald"` selector
+  together with the light/dark attribute. Themes share page components and
+  never change their data boundaries or remount an installation workflow.
+  Components must not branch on the active theme to choose presentation
+  colors.
+- Use `PreferenceControls` anywhere a route can render independently
+  (authentication, administrator, and public screens). Language/mode controls
+  are native labeled buttons; the visual-theme selector is a labeled select
+  with Emerald, Classic and Follow site options.
+
 ## Tests
 
 - Test user-visible semantics and behavior, not internal component structure. `App.test.tsx` renders the component and asserts stable content.

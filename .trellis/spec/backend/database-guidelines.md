@@ -15,12 +15,15 @@ Agent reports, probe results, rates, cumulative traffic values, and historical b
 - `control.db` uses one open/idle connection so its connection-local PRAGMAs are deterministic for the low-write single-admin workload. Telemetry will define its own writer/read-pool policy in `internal/storage/telemetry`; it must not reuse the control store handle.
 - Each database owns its own connection setup and PRAGMAs under its storage package. Current control settings are WAL, `synchronous=NORMAL`, a 5-second busy timeout, foreign keys, a 256-page WAL auto-checkpoint, and a 4 MiB journal-size limit.
 - Session creation first takes SQLite's write lock with a conditional administrator update and verifies that the MFA state used during authentication is still current. It then removes expired/revoked rows and enforces at most 32 active sessions per administrator by evicting the oldest rows in the same transaction. TOTP confirmation validates and retains the current active session and revokes other active sessions atomically with the MFA state change.
-- Enrollment-token creation prunes consumed/expired rows, counts live rows, and inserts in one storage transaction. `control.db` permits at most 256 globally unconsumed, unexpired enrollment tokens and returns `ErrEnrollmentTokenLimit` before a 257th row can be inserted.
+- Enrollment-token creation prunes expired rows, counts live rows, and inserts in one storage transaction. Consumed rows remain until their original expiry so installation status can link to the stable node ID. `control.db` permits at most 256 globally unconsumed, unexpired enrollment tokens and returns `ErrEnrollmentTokenLimit` before a 257th active row can be inserted.
 - Control schema v3 keeps administrator-owned node name/group/hidden fields and low-frequency hello facts (hostname, OS, kernel, architecture, virtualization). `UpdateNodeFacts` writes only when those facts change. Schema v4 adds a node-ID-only telemetry cleanup outbox. Schema v5 adds only TCP definitions/assignments, a snapshot version, and task-ID-only cleanup jobs. These outboxes are not telemetry storage. Live reports, probe results/latency, boot IDs, rates, cumulative counters, and online transitions never update control rows.
 - Control schema v6 adds encrypted notification channel configuration, bounded alert rules/current state, and a 4,096-row transition/test delivery outbox. Alert event payloads are bounded state-transition records, never raw reports or history. Completed rows are pruned; every table and assignment set has an application hard limit.
 - Control schema v7 adds singleton `public_page` presentation settings and an
   explicit `public_nodes` allowlist. Absence from `public_nodes` means private;
   neither table contains host facts, reports, traffic, probe results, or history.
+- Control schema v8 adds singleton `appearance` with a checked built-in
+  `default_theme` enum. Its initial value is Emerald; see
+  [Built-in Appearance](./appearance-guidelines.md).
 
 ## Migrations
 
@@ -59,4 +62,6 @@ Agent reports, probe results, rates, cumulative traffic values, and historical b
 - Schema v6 requires an explicit v5→v6 backup test that proves the backup does not contain notification, alert, or delivery tables.
 - Schema v7 requires an explicit v6→v7 backup test that proves the backup does
   not contain `public_page` or `public_nodes`.
+- Schema v8 requires a v7-to-v8 backup test proving the mode-0600 backup lacks
+  `appearance`; older binaries still reject newer schemas.
 - Enrollment-token tests must cover concurrent admission at the 256-row boundary and prove that consumption and expiry release capacity.

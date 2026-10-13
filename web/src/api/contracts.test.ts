@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { decodeLiveEvent, decodePublicStatus, decodeReport, decodeStorageStats, reduceNodeEvent, type Node } from './contracts'
+import { decodeEnrollment, decodeLiveEvent, decodePublicStatus, decodeReport, decodeStorageStats, reduceNodeEvent, type Node } from './contracts'
 
 const publicNode = {
   name: 'Singapore edge', group: 'SG', online: true, uptime_seconds: 60, cpu_usage_percent: 10,
@@ -74,6 +74,28 @@ describe('decodeStorageStats', () => {
     expect(decoded.mainBytes).toBeNull()
     expect(decoded.freeDiskBytes).toBeNull()
     expect(decoded.freelistPages).toBeNull()
+  })
+})
+
+describe('decodeEnrollment', () => {
+  it('keeps the one-command installer distinct from manual enrollment', () => {
+    const decoded = decodeEnrollment({
+      id: 'enrollment-1', enrollment_token: 'secret', expires_at: '2026-10-11T00:00:00Z',
+      install_command: 'curl install-agent.sh | sudo sh', enroll_command: 'vps-status-agent enroll',
+    })
+    expect(decoded.installCommand).toContain('install-agent.sh')
+    expect(decoded.enrollCommand).toContain('agent enroll')
+  })
+
+  it('requires both installation modes and rejects extras', () => {
+    const base = {
+      id: 'enrollment-1', enrollment_token: 'secret', expires_at: '2026-10-11T00:00:00Z',
+      install_command: 'install', enroll_command: 'enroll',
+    }
+    expect(() => decodeEnrollment({
+      id: base.id, enrollment_token: base.enrollment_token, expires_at: base.expires_at, install_command: base.install_command,
+    })).toThrow()
+    expect(() => decodeEnrollment({ ...base, credential: 'private' })).toThrow(/forbidden field/)
   })
 })
 

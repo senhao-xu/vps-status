@@ -147,3 +147,62 @@ SQLite 创建时启用 WAL、`synchronous=NORMAL`、busy timeout 与 `auto_vacuu
 - 允许私网/回环提高实用性，但存在低速端口探测风险；任务数、间隔、DNS、并发、超时和结果速率均需双端硬限制。
 - 内存聚合使原始数据保持小体积，代价是 Control 崩溃可丢失不到一分钟的未完整历史；实时监控不承诺秒级持久性。
 - 纯 Go SQLite driver 降低发布复杂度，但需通过 100/400 压测验证写入、查询和 vacuum 行为；如不达标，先优化模型/批处理，不在 MVP 中仓促增加多数据库后端。
+
+## 12. Emerald UI and node information architecture
+
+`/root/komari-theme-emerald` 当前本地工作树仅作为 MIT 许可的只读设计参考（HEAD `c2c5e88`，另有用户未提交改动）。实现继续使用现有 React、TypeScript 和普通 CSS，不修改或依赖该工作树，也不把 Vue、Tailwind、reka-ui、3D 地球或远程资源加入构建依赖。
+
+视觉 token 以 Emerald 的特征重新定义现有变量：
+
+- 亮色以中性白/浅灰表面配合 emerald/lime 柔光背景，暗色使用低饱和 slate 表面和较弱绿色光晕。
+- 卡片采用紧凑间距、小圆角、轻边框/阴影和可选半透明表面；交互强调色统一为 emerald，错误和离线仍使用红色。
+- 在线状态同时使用圆点、文本和适度动效；所有动效在 `prefers-reduced-motion` 下关闭。
+- CPU、内存和磁盘使用带文字数值的细进度条；网络速率和运行时间保持可扫描的成对信息。
+- Emerald 是初始站点默认主题；内置 Classic 复用现有色板和表面风格。两个视觉主题与亮/暗模式正交，明暗模式首次访问跟随系统偏好并复用现有版本化 localStorage 契约。
+
+页面边界：
+
+- 管理节点总览：汇总计数、分组筛选、搜索、卡片/列表切换、节点卡片和“添加节点”主操作。
+- 管理节点详情：状态/最近上报、资源指标、主机身份、网络/月流量、历史图表和管理操作。敏感主机事实仍只在管理员页面出现。
+- 公开状态页：使用相同节点卡片语言，但只消费既有公开 DTO；不增加真实主机名、OS/kernel、IP 或历史接口。
+- 其他管理/认证页面：仅复用全局 token 和基础控件样式，不在本里程碑重排业务结构。
+
+可复用 React 组件按现有目录边界拆分为主题背景/页面头部、状态徽标、资源进度条、节点卡片/列表、节点详情区块和 enrollment 对话框；展示组件接收经过 decoder 验证的类型，不在 JSX 中解析原始 API payload。
+
+## 13. Enrollment interaction and status contract
+
+节点接入状态的数据流为：
+
+```text
+Add-node dialog
+  → POST /api/v1/admin/enrollments
+  → one-time install/enroll commands + enrollment id/expiry
+  → Agent downloads, verifies, installs and consumes token
+  → enrollment_tokens.consumed_node_id
+  → GET /api/v1/admin/enrollments/{id}
+  → pending | registered | online | expired
+  → dialog feedback + node collection refresh
+```
+
+- `POST` 仍是唯一返回令牌明文和安装命令的边界；关闭对话框后无法读回旧命令。
+- 新增管理员状态读取端点只返回 enrollment ID、节点显示名称、过期时间、稳定状态枚举，以及消费后才出现的 node ID；绝不返回 token digest、token 明文或节点凭据。
+- `pending` 表示未消费且未过期；`registered` 表示已消费并创建节点但当前不在线；`online` 结合 `LiveStore` 的节点快照计算；`expired` 表示未消费且过期。状态计算由服务端拥有，前端不根据本地时间或节点名称推断。
+- 对话框打开且命令已生成时以有界轮询刷新状态；到达 `online`/`expired`、关闭对话框或组件卸载时停止。进入 `online` 后刷新节点集合并聚焦新节点。
+- `DELETE /api/v1/admin/enrollments/{id}` 只撤销尚未消费的 enrollment；“重新生成”先撤销仍 pending 的旧记录，再创建新记录。并发消费时以服务端最终状态为准，不误删已创建节点。
+- 已消费 enrollment 至少保留到原过期时间，支持短期状态查询；创建时继续清理过期记录，活跃 token 上限保持 256。消费记录增长与实际新建节点同阶且受最长 24 小时 TTL 限定。
+- 安装命令继续使用固定 `/install-agent.sh`、TLS 限制、版本固定、SHA-256 校验、非 root systemd 账户、0600 配置和一次性 token；UI 改造不放宽任何安装安全条件。
+
+## 14. Built-in theme management
+
+主题管理是内置视觉主题注册表与站点配置，不执行用户上传内容。注册表只包含 `emerald` 与 `classic`，复用相同页面组件和数据边界。DOM 使用独立的视觉主题属性与明暗属性，使现有 `data-theme="light|dark"` 和 `vps-status.theme` v1 明暗偏好保持兼容。
+
+- 增加独立 singleton appearance 配置及 control.db 加法迁移，初始 `default_theme` 为 `emerald`；保存不涉及节点配置或 telemetry.db。
+- `GET/PUT /api/v1/admin/appearance` 读取/保存站点默认主题，写入沿用管理员认证与 CSRF；未知主题 ID 返回 `invalid_input`。保存成功后当前页面同步默认值。
+- `GET /api/v1/public/appearance` 仅返回 `{default_theme}`，用于登录页和公开页启动；即使公开状态页关闭也可读取主题，不返回节点、凭据或其他管理设置。
+- ThemeProvider 负责读取/解码公开展示配置、主题选择与 DOM 属性；读取失败回退 Emerald 并保持页面可用。公共配置是显式 decoder 契约，不在展示组件中自行解析。
+- 视觉主题解析优先级为浏览器临时覆盖 → 站点默认 → Emerald。覆盖用独立、版本化 sessionStorage 项保存，值包含 `emerald|classic`；“跟随站点”删除覆盖。自动读取站点默认不写成个人覆盖。
+- 明暗模式继续使用现有 localStorage v1 结构，视觉主题切换不修改亮/暗偏好；存储不可用时仍支持当页切换。
+- 管理“主题管理”页提供两张实际色板/组件预览卡和当前站点默认标记，保存按钮明确写入站点设置；浏览器偏好入口使用独立主题选择控件，包含“跟随站点”。
+- Classic 保留既有视觉色板并适配新的节点卡片和安装对话框；切换主题不丢失节点选择、筛选或安装中的状态。
+
+回退方案：站点设置可切回 Classic。数据库仍执行单调版本校验，旧程序会拒绝新 schema；如需回退旧 Control 二进制，必须恢复升级前的配置库备份，并评估升级后的配置变更。两个主题的样式随 Web 产物内嵌发布，不依赖本地参考目录。

@@ -28,6 +28,63 @@ type createEnrollmentRequest struct {
 	ExpiresInSeconds int64  `json:"expires_in_seconds,omitempty"`
 }
 
+type enrollmentStatusDTO struct {
+	ID        string    `json:"id"`
+	NodeName  string    `json:"node_name"`
+	ExpiresAt time.Time `json:"expires_at"`
+	Status    string    `json:"status"`
+	NodeID    string    `json:"node_id,omitempty"`
+}
+
+func (api *adminAPI) enrollmentStatus(response http.ResponseWriter, request *http.Request, _ authenticatedRequest) {
+	id := request.PathValue("id")
+	if id == "" || len(id) > 128 {
+		writeError(response, http.StatusNotFound, "not_found", "The enrollment was not found.")
+		return
+	}
+	record, err := api.config.Store.EnrollmentByID(request.Context(), id)
+	if errors.Is(err, controlstore.ErrNotFound) {
+		writeError(response, http.StatusNotFound, "not_found", "The enrollment was not found.")
+		return
+	}
+	if err != nil {
+		writeInternal(response)
+		return
+	}
+	dto := enrollmentStatusDTO{ID: record.ID, NodeName: record.NodeName, ExpiresAt: record.ExpiresAt, Status: "pending", NodeID: record.ConsumedNodeID}
+	if dto.NodeID != "" {
+		dto.Status = "registered"
+		if api.config.Live.Snapshot(dto.NodeID).Online {
+			dto.Status = "online"
+		}
+	} else if !record.ExpiresAt.After(api.now()) {
+		dto.Status = "expired"
+	}
+	writeJSON(response, http.StatusOK, dto)
+}
+
+func (api *adminAPI) revokeEnrollment(response http.ResponseWriter, request *http.Request, _ authenticatedRequest) {
+	id := request.PathValue("id")
+	if id == "" || len(id) > 128 {
+		writeError(response, http.StatusNotFound, "not_found", "The enrollment was not found.")
+		return
+	}
+	err := api.config.Store.RevokeEnrollment(request.Context(), id)
+	if errors.Is(err, controlstore.ErrEnrollmentConsumed) {
+		writeError(response, http.StatusConflict, "enrollment_consumed", "The enrollment has already registered a node.")
+		return
+	}
+	if errors.Is(err, controlstore.ErrNotFound) {
+		writeError(response, http.StatusNotFound, "not_found", "The enrollment was not found.")
+		return
+	}
+	if err != nil {
+		writeInternal(response)
+		return
+	}
+	response.WriteHeader(http.StatusNoContent)
+}
+
 func (api *adminAPI) createEnrollment(response http.ResponseWriter, request *http.Request, _ authenticatedRequest) {
 	var input createEnrollmentRequest
 	if !decodeJSON(response, request, &input) {
@@ -66,10 +123,11 @@ func (api *adminAPI) createEnrollment(response http.ResponseWriter, request *htt
 		writeInternal(response)
 		return
 	}
-	command := fmt.Sprintf("vps-status-agent enroll --control-url %s --token %s", shellQuote(controlURL), shellQuote(plaintext))
+	enrollCommand := fmt.Sprintf("vps-status-agent enroll --control-url %s --token %s", shellQuote(controlURL), shellQuote(plaintext))
 	writeJSON(response, http.StatusCreated, map[string]any{
 		"id": id, "enrollment_token": plaintext, "expires_at": record.ExpiresAt,
-		"install_command": command,
+		"install_command": agentInstallCommand(controlURL, plaintext),
+		"enroll_command":  enrollCommand,
 	})
 }
 

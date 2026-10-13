@@ -137,6 +137,38 @@ pnpm --dir web build
 go test ./internal/control/...
 ```
 
+## Milestone 7.1: Emerald node experience and guided installation
+
+- [x] 增加内置 Emerald/Classic 主题注册表、独立视觉主题属性和预览卡；两个主题均支持亮/暗模式，Classic 保留现有视觉色板。
+- [x] 增加 control.db singleton appearance 加法迁移与 store 方法，以及管理员 `GET/PUT /api/v1/admin/appearance` 和白名单 `GET /api/v1/public/appearance`；初始默认 Emerald。
+- [x] 增加管理后台“主题管理”页与站点默认保存；ThemeProvider 加载站点配置，浏览器独立选择 Emerald/Classic/跟随站点，以 sessionStorage 保存临时覆盖并兼容既有 localStorage 明暗偏好。
+- [x] 以本地 `komari-theme-emerald` 1.0.12 当前工作树（HEAD `c2c5e88`，只读）为视觉参考，重构现有 CSS token、背景、表面、按钮、输入框、焦点和响应式规则；保留 React/CSS 架构及版本化明暗偏好。
+- [x] 抽取状态徽标、细资源进度条、节点卡片/列表和对话框等可复用组件；节点总览增加汇总、分组、搜索、卡片/列表切换及明确的“添加节点”主操作。
+- [x] 重排管理员节点详情的信息层级，复用已有实时/历史数据和管理操作，不扩大管理员 API 的敏感字段边界。
+- [x] 将公开状态页改为 Emerald 节点卡片语言，同时保持独立公开 DTO 和现有白名单负面测试。
+- [x] 在 control store 增加按 ID 读取/撤销 enrollment 的最小方法，并将已消费记录保留至原过期时间，以支持短期状态回显。
+- [x] 增加 `GET/DELETE /api/v1/admin/enrollments/{id}`：服务端计算 `pending|registered|online|expired`，只撤销未消费 token，且所有响应不含 token/credential 明文。
+- [x] 将节点接入改为两阶段对话框：输入节点信息 → 一次性命令/复制/过期时间 → 有界轮询安装状态；完成、过期、关闭、撤销和重新生成均正确停止或替换轮询。
+- [x] 补齐中英文文案、键盘焦点、对话框焦点管理、非颜色状态文本、320px 布局和 reduced-motion 行为。
+- [x] 增加 storage/API/decoder/component 及浏览器交互验收，覆盖并发消费与撤销、过期、复制失败、状态推进、公开字段不泄露和偏好兼容。
+- [x] 验证默认主题重启持久化、未知主题拒绝、未授权/缺失 CSRF 写入拒绝、浏览器覆盖与跟随站点恢复、公共配置加载失败回退，以及两主题切换不丢失安装状态。
+
+Validation:
+
+```bash
+go test ./internal/storage/control/... ./internal/control/...
+go test -race ./internal/storage/control/... ./internal/control/...
+pnpm --dir web lint
+pnpm --dir web typecheck
+pnpm --dir web test
+pnpm --dir web build
+go test -tags webui ./...
+```
+
+Rollback point: 可在主题管理中切回 Classic。新增 appearance 表不重写既有数据，但旧程序因 schema 版本校验不能直接打开升级后的库；回退旧二进制需恢复升级前备份。enrollment 状态端点和 UI 组件可独立回退；若新状态端点不可用，既有 `POST /enrollments`、安装脚本与 Agent 注册链路仍保持兼容。
+
+Verification evidence: [Emerald 交付验收](./verification-emerald.md)。本里程碑已完成；不代表下方 100 Agent / 400 TCP 任务容量验收完成，也不代表已部署或已在真实远端主机执行安装命令。
+
 ## Milestone 8: packaging, operations, and full-scope verification
 
 - [x] 生成 Control 单二进制、Agent linux/amd64 + linux/arm64、checksum 和版本信息。
@@ -168,9 +200,9 @@ docker compose -f deploy/docker-compose.yml config
 4. 任何 TCP 扩展都必须在 Control 与 Agent 两侧有等价上限。
 5. 任何迁移或清理都要证明中断后可幂等恢复。
 
-## Follow-up checks before activation
+## Follow-up checks before activation or material scope expansion
 
-- [x] 用户已审阅并明确批准最新 PRD/design/implement 摘要。
+- [x] 用户已审阅并通过“继续”批准包含 Emerald 节点体验及内置主题管理的最新 PRD/design/implement 摘要；确认 Emerald 不包含 3D 地球。
 - [x] 确认仓库初始化方式和主分支，不覆盖用户数据。
 - [x] 确认 Trellis 实施/检查上下文不再是 `_example` 占位行。
 - [x] 只在上述条件满足后运行 `task.py start`。

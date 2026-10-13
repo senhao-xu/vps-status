@@ -68,14 +68,29 @@ sudo systemctl reload caddy
 ```
 
 Caddy 会自动申请和续期 HTTPS 证书。打开 `https://monitor.example.com/`，首次访问
-会显示创建唯一管理员的表单；自行设置用户名和至少 12 位密码，没有默认账号密码。
+会显示创建唯一管理员的表单；自行设置用户名和密码，没有默认账号密码，服务端不限制
+管理员密码长度。
 完整的 [Caddy 示例](deploy/reverse-proxy/Caddyfile) 和
 [nginx 示例](deploy/reverse-proxy/nginx.conf) 均已提供。
 
-登录后，在 **Nodes → Enroll a Linux node** 中填写节点名称和 Control 的 HTTPS
-地址，生成一次性注册密钥。该页面的命令仅负责注册已有 Agent，不会下载二进制或安装
-systemd 服务；请先准备匹配主机架构且通过 checksum 校验的 Agent 二进制，再按
-[Agent systemd 安装说明](deploy/README.md#agent-systemd-installation)完成安装和注册。
+登录后，在 **节点 → 添加节点 / Nodes → Add node** 对话框中填写节点名称和 Control 的 HTTPS
+地址，复制生成的一键安装命令到目标服务器执行；对话框会显示等待安装、已注册和在线状态。
+安装命令只在创建时展示，过期后可重新生成，未使用的令牌可以撤销。安装程序支持 Linux amd64/arm64，
+会从与 Control 明确绑定的 Release 版本下载 Agent、安装脚本和 systemd unit，逐项校验
+`SHA256SUMS`，然后创建非 root 服务账户、完成一次性注册并启动服务。页面同时保留仅注册
+已有 Agent 的手动命令。详细要求和排错方式见
+[Agent systemd 安装说明](deploy/README.md#agent-systemd-installation)。
+
+### 内置主题管理
+
+管理后台的 **主题管理 / Theme management** 提供 Emerald 和 Classic 两个内置主题，
+支持预览并保存站点默认值。新安装默认使用 Emerald，采用翠绿色背景与紧凑节点卡片，
+不包含 3D 地球；Classic 保留原有视觉风格。默认主题保存在 `control.db`，Control
+重启后仍生效，登录页、管理界面和公开状态页使用相同设置。
+
+页面上的主题选择允许当前浏览器会话临时使用 Emerald 或 Classic，选择“跟随站点”
+即可恢复站点默认主题。亮色/暗色切换独立保存为浏览器偏好；没有偏好时跟随系统。
+目前支持内置主题，不提供第三方主题上传或主题市场。
 
 ### 更新与停止
 
@@ -134,8 +149,11 @@ go run ./cmd/agent --version
 ```
 
 An administrator can create a one-time installation command through
-`POST /api/v1/admin/enrollments`. The command enrolls the Agent and writes its
-node credential to a mode-0600 config. A configured Agent runs with:
+`POST /api/v1/admin/enrollments`. It downloads a pinned Linux amd64/arm64
+release, verifies SHA-256 checksums, installs the non-root systemd service,
+enrolls the Agent, and writes its node credential to a mode-0600 config. The
+response also includes a manual enrollment command for an already-installed
+Agent. A configured Agent runs with:
 
 ```bash
 go run ./cmd/agent --config /etc/vps-status/agent.json
@@ -150,17 +168,34 @@ make build VERSION=v0.1.0 COMMIT="$(git rev-parse --short HEAD)"
 ```
 
 The release script builds the embedded-Web Control, both Linux Agent
-architectures, and `SHA256SUMS`:
+architectures, packages the systemd install/uninstall assets, and writes one
+`SHA256SUMS` covering every release asset:
 
 ```bash
 scripts/release.sh v0.1.0 "$(git rev-parse HEAD)" dist
 ```
+
+Pushing a semantic version tag runs the release workflow, verifies those
+checksums, and publishes the complete `dist/` set to the matching GitHub
+Release. The default one-command installer downloads only from that exact tag.
 
 ## Running Control
 
 ```bash
 go run ./cmd/control --data-dir ./data --listen :8080
 ```
+
+Release builds pin one-command Agent installation to the Control build version
+and the repository's GitHub Releases URL. A mirror or independently selected
+Agent release can be configured explicitly:
+
+```bash
+vps-status-control --agent-release-version v0.1.0 \
+  --agent-release-base-url https://downloads.example.com/vps-status
+```
+
+Source builds identify as `dev`; set `--agent-release-version` to an existing
+published version before using their generated one-command installer.
 
 The administrator API uses `Secure` cookies. Terminate TLS at a reverse proxy before using it from a browser. If both TOTP and recovery codes are lost, an operator with direct access to the Control data directory can reset MFA and revoke every session:
 

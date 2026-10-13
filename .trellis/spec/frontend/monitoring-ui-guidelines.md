@@ -34,6 +34,22 @@ administrator `EventSource` lifecycle.
   clear-history and reset-all use distinct typed confirmations in the UI.
 - Public state is decoded only by the exact-key public decoder. It is never
   derived from an administrator `Node`.
+- Enrollment commands stay in dialog memory and are not persisted as UI
+  preferences. Poll installation status by enrollment ID, associate consumed
+  node ID from the status contract, stop on online/expired/401/404 or dialog
+  unmount, and cancel pending requests/timers. Retries are bounded and never
+  overlap requests. Revoke/regenerate stops old polling before mutation.
+- A consumed-token conflict refreshes its status rather than creating a
+  duplicate node. Online completion refreshes the administrator collection
+  through its existing load owner and selects the returned node ID.
+- A revocation `404` does not prove the token was unused: expired consumed
+  rows may have been pruned. Stop regeneration, show missing-record guidance
+  and ask the operator to check nodes; never automatically POST a replacement.
+- Native installation dialogs provide keyboard dismissal, focus containment
+  and restoration; all stages expose pending/error/status text. Theme changes
+  retain the dialog and its secret only in memory.
+  Focus the name input through its ref after `showModal()`; React autoFocus
+  before the modal opens may leave Chromium focused on the close button.
 
 ## 4. Validation & Error Matrix
 
@@ -45,6 +61,10 @@ administrator `EventSource` lifecycle.
 | Empty history/probe series | Textual empty state, not a zero-valued chart |
 | Public payload has hostname/IP/OS/kernel/credential/history key | Decoder rejects the response; nothing is rendered |
 | SSE parse/network failure | Source closes and bounded reconnect starts |
+| Appearance bootstrap fails | Emerald fallback, rest of UI continues |
+| Enrollment revocation/regeneration returns `409 enrollment_consumed` | Refresh current enrollment status; do not create another token |
+| Enrollment revocation/regeneration returns `404 not_found` | Show missing-record guidance; do not create a replacement token |
+| Enrollment status missing or polling repeatedly fails | Observable error; timers stop within the retry bound |
 
 ## 5. Good / Base / Bad Cases
 
@@ -61,6 +81,10 @@ administrator `EventSource` lifecycle.
 - Public fixtures assert hostname/IP/OS/kernel/credentials/history do not
   render.
 - Chart tests assert `role=img`, an accessible label, and a table alternative.
+- Enrollment tests verify sequential polling, terminal cancellation, stale
+  completion ignored after cleanup, and no second enrollment on consumed
+  conflict. Browser checks exercise command copy, focus return and theme
+  changes during an open installation dialog.
 - Run lint, strict typecheck, unit tests, production build, then tagged Go
   embed tests after every asset change.
 

@@ -41,17 +41,64 @@ values are JSON `null`. It never contains node IDs, real hostname, IP, OS,
 kernel, architecture, virtualization, credentials, probe targets, alert or
 notification secrets, or historical points/curves.
 
+## Built-in appearance
+
+`GET/PUT /api/v1/admin/appearance` reads or saves the site default theme.
+Both return exactly `{"default_theme":"emerald"}` or
+`{"default_theme":"classic"}`; PUT accepts the same shape and requires an
+administrator session and CSRF token. Unsupported theme IDs return
+`400 invalid_input`. Configuration is persisted in the singleton `appearance`
+table in `control.db`; the initial default is Emerald.
+
+`GET /api/v1/public/appearance` returns only that presentation field without
+authentication, including when the public status page is disabled. Login and
+public pages use it to choose their default theme. Browser overrides are
+frontend session preferences and do not write this configuration. Visual
+theme and light/dark mode are independent. All appearance responses use the
+existing API `Cache-Control: no-store` policy.
+
 ## Agent enrollment and credentials
 
 An authenticated administrator creates a short-lived enrollment through
 `POST /api/v1/admin/enrollments` with `node_name`, `control_url`, and optional
 `expires_in_seconds` (300–86400). The response shows the 256-bit enrollment
-token and a single-line `vps-status-agent enroll` command exactly once.
+token exactly once and contains two distinct commands: `install_command` is a
+single-line bootstrap through the public fixed `GET /install-agent.sh`
+endpoint, while `enroll_command` is the compatibility/manual
+`vps-status-agent enroll` command for an Agent already installed on the node.
 Control stores only the domain-separated token digest.
 At most 256 unconsumed, unexpired enrollment tokens may exist globally.
-Creation first prunes consumed/expired rows in the same storage transaction;
+Creation first prunes expired rows in the same storage transaction;
 the next token is rejected with `409 enrollment_token_limit` when the bound is
-still full.
+still full. Consumed records do not count toward this limit and remain until
+their original expiry so installation status can be read.
+
+`GET /api/v1/admin/enrollments/{id}` requires an administrator session and
+returns only `id`, `node_name`, RFC3339 `expires_at`, and `status`, with `node_id`
+included only after consumption. States are `pending` (unconsumed/unexpired),
+`expired` (unconsumed/expired), `registered` (consumed, not online), and `online`
+(consumed node has a current online LiveStore snapshot). A connected Agent
+without a valid report is still `registered`. Consumption takes precedence
+over expiry while the record is retained. Status never exposes token,
+digest, installation command, or node credential material.
+
+`DELETE /api/v1/admin/enrollments/{id}` requires session and CSRF and revokes
+only an unconsumed enrollment, returning `204`. Concurrent consumption and
+revocation are atomic: if consumption won, deletion returns
+`409 enrollment_consumed` and preserves the registered node. Clients should
+refresh that enrollment's status instead of creating a replacement node.
+Unknown, revoked, and expiry-pruned IDs return `404 not_found` for both routes;
+a pruned status does not imply that a successfully registered node expired.
+
+The bootstrap script contains no enrollment secret. It accepts the Control URL
+and one-time token as arguments, supports only Linux amd64/arm64 with systemd,
+and downloads a configured explicit Release version over HTTPS. It fetches the
+matching Agent, `SHA256SUMS`, the systemd installer, and unit, verifies each
+download before execution, installs the Agent under the locked
+`vps-status-agent` account, enrolls it, and starts the service. Its Release base
+URL and version are restricted at Control startup to prevent shell/path
+injection. OpenRC, Docker Agent installation, automatic updates, and signature
+verification are not part of this endpoint.
 
 The Agent sends that token in `Authorization: Bearer <token>` to
 `POST /agent/v1/enroll`. It is never accepted in a URL or query parameter. A

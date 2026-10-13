@@ -9,5 +9,7 @@ describe('App', () => {
 
     expect(markup).toContain('Checking Control session')
     expect(markup).toContain('role="status"')
+    expect(markup).toContain('Switch language to Chinese')
+    expect(markup).toContain('Light theme')
   })
 })

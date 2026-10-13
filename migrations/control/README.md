@@ -14,6 +14,8 @@ independent schema version from the telemetry database.
   and current state, plus a low-growth transition/test delivery outbox.
 - `007_public_status.sql`: singleton public-page presentation settings and an
   explicit node publication allowlist. Nodes remain private until inserted.
+- `008_appearance.sql`: singleton built-in visual theme selection; Emerald
+  is the initial default, and Classic is the other accepted theme.
 
 Agent reports, probe results, traffic counters, and historical samples never
 belong in this migration stream. Cleanup jobs contain only a stable node ID

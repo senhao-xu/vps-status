@@ -152,6 +152,8 @@ func runServer(arguments []string, stdout, stderr io.Writer) error {
 	telemetryBudget := flags.Int64("telemetry-max-bytes", 512<<20, "maximum telemetry DB/WAL/SHM bytes")
 	telemetryMinFree := flags.Uint64("telemetry-min-free-bytes", 256<<20, "minimum free bytes before history pauses")
 	telemetryRetentionDays := flags.Int("telemetry-retention-days", 30, "hourly history retention: 30, 90, or 365 days")
+	agentReleaseBaseURL := flags.String("agent-release-base-url", controlapp.DefaultAgentReleaseBaseURL, "HTTPS base URL containing versioned Agent release assets")
+	agentReleaseVersion := flags.String("agent-release-version", versioninfo.Version, "explicit Agent release version used by the installer")
 	if err := flags.Parse(arguments); err != nil {
 		return err
 	}
@@ -229,7 +231,8 @@ func runServer(arguments []string, stdout, stderr io.Writer) error {
 	}()
 	go maintainTelemetry(workerContext, store, history, probeHistory, telemetryService)
 	handler, err := controlapp.NewHandler(controlapp.APIConfig{Store: store, MasterKey: masterKey, Telemetry: telemetryService,
-		History: history, ProbeHistory: probeHistory, Live: live, Registry: registry, Notifications: dispatcher, Alerts: alerts, WorkerContext: workerContext})
+		History: history, ProbeHistory: probeHistory, Live: live, Registry: registry, Notifications: dispatcher, Alerts: alerts, WorkerContext: workerContext,
+		AgentReleaseBaseURL: *agentReleaseBaseURL, AgentReleaseVersion: *agentReleaseVersion})
 	if err != nil {
 		return fmt.Errorf("create Control handler: %w", err)
 	}

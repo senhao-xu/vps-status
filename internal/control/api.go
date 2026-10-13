@@ -53,6 +53,8 @@ type APIConfig struct {
 	WorkerContext       context.Context
 	NotificationConfig  NotificationDispatcherConfig
 	AlertConfig         AlertManagerConfig
+	AgentReleaseBaseURL string
+	AgentReleaseVersion string
 }
 
 // NewHandler wires the versioned JSON API ahead of the SPA fallback.
@@ -62,6 +64,11 @@ func NewHandler(config APIConfig) (http.Handler, error) {
 	}
 	if config.PasswordParams == (security.PasswordParams{}) {
 		config.PasswordParams = security.DefaultPasswordParams
+	}
+	var err error
+	config.AgentReleaseBaseURL, config.AgentReleaseVersion, err = normalizeAgentReleaseConfig(config.AgentReleaseBaseURL, config.AgentReleaseVersion)
+	if err != nil {
+		return nil, fmt.Errorf("configure Agent release: %w", err)
 	}
 	if config.SessionTTL == 0 {
 		config.SessionTTL = 7 * 24 * time.Hour
@@ -129,6 +136,7 @@ func NewHandler(config APIConfig) (http.Handler, error) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", health)
 	mux.HandleFunc("GET /readyz", health)
+	mux.HandleFunc("GET "+agentInstallScriptPath, api.installAgentScript)
 	mux.HandleFunc("GET /api/v1/admin/setup", api.setupStatus)
 	mux.HandleFunc("POST /api/v1/admin/setup", api.setup)
 	mux.HandleFunc("POST /api/v1/admin/login", api.login)
@@ -140,6 +148,10 @@ func NewHandler(config APIConfig) (http.Handler, error) {
 	mux.HandleFunc("POST /api/v1/admin/mfa/totp/confirm", api.auth(true, api.confirmTOTP))
 	mux.HandleFunc("POST /api/v1/admin/mfa/totp/disable", api.auth(true, api.disableTOTP))
 	mux.HandleFunc("POST /api/v1/admin/enrollments", api.auth(true, api.createEnrollment))
+	mux.HandleFunc("GET /api/v1/admin/enrollments/{id}", api.auth(false, api.enrollmentStatus))
+	mux.HandleFunc("DELETE /api/v1/admin/enrollments/{id}", api.auth(true, api.revokeEnrollment))
+	mux.HandleFunc("GET /api/v1/admin/appearance", api.auth(false, api.appearance))
+	mux.HandleFunc("PUT /api/v1/admin/appearance", api.auth(true, api.updateAppearance))
 	mux.HandleFunc("GET /api/v1/admin/nodes", api.auth(false, api.nodes))
 	mux.HandleFunc("GET /api/v1/admin/nodes/{id}", api.auth(false, api.node))
 	mux.HandleFunc("PATCH /api/v1/admin/nodes/{id}", api.auth(true, api.updateNode))
@@ -185,6 +197,7 @@ func NewHandler(config APIConfig) (http.Handler, error) {
 	mux.HandleFunc("POST /agent/v1/enroll", api.enrollAgent)
 	mux.HandleFunc("GET /agent/v1/ws", agents.serveWS)
 	mux.HandleFunc("GET /api/v1/public/status", api.publicStatus)
+	mux.HandleFunc("GET /api/v1/public/appearance", api.publicAppearance)
 	mux.Handle("/api/", http.HandlerFunc(api.notFound))
 	mux.Handle("/", config.Web)
 	return securityHeaders(noStoreAPI(sameOrigin(mux))), nil
@@ -269,8 +282,8 @@ func (api *adminAPI) setup(response http.ResponseWriter, request *http.Request) 
 		return
 	}
 	input.Username = strings.TrimSpace(input.Username)
-	if !validUsername(input.Username) || len(input.Password) < 12 || len(input.Password) > 1024 {
-		writeError(response, http.StatusBadRequest, "invalid_input", "Username or password does not meet the requirements.")
+	if !validUsername(input.Username) {
+		writeError(response, http.StatusBadRequest, "invalid_input", "Username does not meet the requirements.")
 		return
 	}
 	passwordHash, err := security.HashPassword(input.Password, api.config.PasswordParams)

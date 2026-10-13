@@ -16,7 +16,9 @@ func (s *Store) CreateEnrollmentToken(ctx context.Context, token EnrollmentToken
 		return fmt.Errorf("begin enrollment token creation: %w", err)
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, `DELETE FROM enrollment_tokens WHERE consumed_at IS NOT NULL OR expires_at <= ?`, unix(token.CreatedAt)); err != nil {
+	// Keep consumed records through their original expiry so the installer UI
+	// can associate registration with its stable node ID.
+	if _, err := tx.ExecContext(ctx, `DELETE FROM enrollment_tokens WHERE expires_at <= ?`, unix(token.CreatedAt)); err != nil {
 		return fmt.Errorf("prune unavailable enrollment tokens: %w", err)
 	}
 	var active int
@@ -37,6 +39,63 @@ func (s *Store) CreateEnrollmentToken(ctx context.Context, token EnrollmentToken
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit enrollment token creation: %w", err)
+	}
+	return nil
+}
+
+// EnrollmentStatus is the non-secret projection of one enrollment record.
+type EnrollmentStatus struct {
+	ID             string
+	NodeName       string
+	ExpiresAt      time.Time
+	ConsumedNodeID string
+}
+
+// EnrollmentByID reads installation metadata without reading token material.
+func (s *Store) EnrollmentByID(ctx context.Context, id string) (EnrollmentStatus, error) {
+	var record EnrollmentStatus
+	var expires int64
+	var nodeID sql.NullString
+	err := s.db.QueryRowContext(ctx, `SELECT id,node_name,expires_at,consumed_node_id FROM enrollment_tokens WHERE id=?`, id).Scan(
+		&record.ID, &record.NodeName, &expires, &nodeID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return EnrollmentStatus{}, ErrNotFound
+	}
+	if err != nil {
+		return EnrollmentStatus{}, fmt.Errorf("read enrollment status: %w", err)
+	}
+	record.ExpiresAt, record.ConsumedNodeID = fromUnix(expires), nodeID.String
+	return record, nil
+}
+
+// RevokeEnrollment deletes only unconsumed tokens. Consumption and revocation
+// serialize within control.db; a consumed record and its node remain intact.
+func (s *Store) RevokeEnrollment(ctx context.Context, id string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin enrollment revocation: %w", err)
+	}
+	defer tx.Rollback()
+	result, err := tx.ExecContext(ctx, `DELETE FROM enrollment_tokens WHERE id=? AND consumed_at IS NULL`, id)
+	if err != nil {
+		return fmt.Errorf("revoke enrollment: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read enrollment revocation result: %w", err)
+	}
+	if rows == 0 {
+		var exists int
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM enrollment_tokens WHERE id=?`, id).Scan(&exists); err != nil {
+			return fmt.Errorf("read retained enrollment: %w", err)
+		}
+		if exists != 0 {
+			return ErrEnrollmentConsumed
+		}
+		return ErrNotFound
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit enrollment revocation: %w", err)
 	}
 	return nil
 }

@@ -17,6 +17,8 @@ The storage boundary owns these operations:
 
 ```go
 func (*Store) CreateEnrollmentToken(context.Context, EnrollmentToken) error
+func (*Store) EnrollmentByID(context.Context, string) (EnrollmentStatus, error)
+func (*Store) RevokeEnrollment(context.Context, string) error
 func (*Store) ConsumeEnrollment(context.Context, [32]byte, string, string, [32]byte, time.Time) (Node, error)
 func (*Store) AuthenticateNodeCredential(context.Context, [32]byte) (Node, NodeCredential, error)
 func (*Store) RotateNodeCredential(context.Context, string, string, [32]byte, time.Time) error
@@ -44,8 +46,21 @@ cross the storage boundary.
 - `POST /api/v1/admin/enrollments` accepts `node_name` (1–128 bytes),
   `control_url`, and optional `expires_in_seconds` (300–86400, default 3600).
 - At most `control.MaxActiveEnrollmentTokens` (256) unconsumed, unexpired
-  tokens exist globally. Creation prunes unavailable rows, counts, and inserts
+  tokens exist globally. Creation prunes expired rows, counts active tokens, and inserts
   in one write transaction.
+- Administrator `GET /api/v1/admin/enrollments/{id}` returns only `id`,
+  `node_name`, `expires_at`, `status` and optional consumed `node_id`.
+  Status is `pending|registered|online|expired`; consumed records are
+  registered/online according to LiveStore, regardless of their original TTL
+  while retained. No token plaintext/digest or node credential is returned.
+- Consumed records survive creation of other enrollments until original
+  expiry. A later creation may prune them, and querying removed records gives
+  `404 not_found` rather than guessing registration by node name.
+- Administrator `DELETE /api/v1/admin/enrollments/{id}` requires CSRF and
+  atomically deletes only unconsumed records. Consumption racing revocation
+  either creates one node or revokes the token; it never deletes a created
+  node. Regeneration after `409 enrollment_consumed` must refresh the existing
+  installation state instead of silently registering a second node.
 - `POST /agent/v1/enroll` accepts the token only as
   `Authorization: Bearer <token>` and returns `node_id`, `node_name`,
   `credential`, and `websocket_path` once.
@@ -94,6 +109,8 @@ cross the storage boundary.
 | Invalid name, URL, or enrollment TTL | HTTP `400 invalid_input` or `400 invalid_expiry` |
 | 257th active enrollment token | `ErrEnrollmentTokenLimit`; HTTP `409 enrollment_token_limit` |
 | Unknown, expired, or consumed enrollment token | HTTP `401 enrollment_invalid` without distinguishing the cause |
+| Administrator status/revocation for missing enrollment ID | `404 not_found` |
+| Revocation for already consumed enrollment | `409 enrollment_consumed` |
 | Missing/revoked node credential | HTTP `401 unauthorized` |
 | Storage failure during credential authentication | HTTP `500 internal_error`, never `401` |
 | Unknown/trailing JSON or incomplete envelope | protocol `invalid_envelope` and close |
@@ -124,6 +141,8 @@ returned or logged.
 
 - Storage: one-time atomic consumption, expiry, 256/257 admission, concurrent
   admission, and capacity released by consumption/expiry.
+- Status: pending/registered/online/expired progression, retained consumption
+  across another creation, no secrets in responses, and consume/revoke races.
 - HTTP: stable status/code mapping, secret absence from URLs/errors, TTL bounds
   before duration conversion, and internal storage error mapped to 500.
 - Agent: redirect refusal, HTTPS/loopback validation, strict/bounded response

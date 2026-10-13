@@ -254,6 +254,30 @@ func TestAdminAuthenticationMFAAndSessionLifecycle(t *testing.T) {
 	}
 }
 
+func TestAdminSetupAndLoginAcceptPasswordOfAnyLength(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		password string
+	}{
+		{name: "short", password: "x"},
+		{name: "empty API value", password: ""},
+		{name: "longer than the former maximum", password: strings.Repeat("x", 2048)},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			handler, _ := newTestAdminAPI(t, nil)
+			body := fmt.Sprintf(`{"username":"owner","password":%q}`, test.password)
+			setup := performJSON(t, handler, http.MethodPost, "/api/v1/admin/setup", body, nil, "")
+			if setup.Code != http.StatusCreated {
+				t.Fatalf("setup status = %d, body = %s; want 201", setup.Code, setup.Body.String())
+			}
+			login := performJSON(t, handler, http.MethodPost, "/api/v1/admin/login", body, nil, "")
+			if login.Code != http.StatusOK {
+				t.Fatalf("login status = %d, body = %s; want 200", login.Code, login.Body.String())
+			}
+		})
+	}
+}
+
 func TestOperationalEndpointsOriginGuardAndAgentConnectionLimit(t *testing.T) {
 	limiter := security.NewLimiter(1, time.Minute, 8)
 	handler, _ := newTestAdminAPI(t, func(config *APIConfig) {

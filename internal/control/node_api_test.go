@@ -37,14 +37,20 @@ func TestEnrollmentAPIIsOneTimeAndCredentialsRotate(t *testing.T) {
 		t.Fatalf("create enrollment=%d %s", created.Code, created.Body.String())
 	}
 	var enrollment struct {
-		Token   string `json:"enrollment_token"`
-		Command string `json:"install_command"`
+		Token          string `json:"enrollment_token"`
+		InstallCommand string `json:"install_command"`
+		EnrollCommand  string `json:"enroll_command"`
 	}
 	enrollment = decodeResponse[struct {
-		Token   string `json:"enrollment_token"`
-		Command string `json:"install_command"`
+		Token          string `json:"enrollment_token"`
+		InstallCommand string `json:"install_command"`
+		EnrollCommand  string `json:"enroll_command"`
 	}](t, created)
-	if enrollment.Token == "" || !strings.Contains(enrollment.Command, enrollment.Token) || strings.Contains(enrollment.Command, "?token=") {
+	if enrollment.Token == "" || !strings.Contains(enrollment.InstallCommand, enrollment.Token) ||
+		!strings.Contains(enrollment.InstallCommand, "https://control.example/install-agent.sh") ||
+		!strings.Contains(enrollment.EnrollCommand, "vps-status-agent enroll") ||
+		!strings.Contains(enrollment.EnrollCommand, enrollment.Token) ||
+		strings.Contains(enrollment.InstallCommand, "?token=") || strings.Contains(enrollment.EnrollCommand, "?token=") {
 		t.Fatalf("enrollment response=%#v", enrollment)
 	}
 

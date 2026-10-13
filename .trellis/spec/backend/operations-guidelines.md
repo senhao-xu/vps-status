@@ -25,6 +25,79 @@
 - Uninstall retains configuration by default; an explicit purge is destructive
   and must be named as such.
 
+## Scenario: One-command Agent installation release
+
+### 1. Scope / Trigger
+
+Use this contract when changing enrollment commands, the public bootstrap
+script, Agent release asset names, release mirrors, or the tag release
+workflow. These pieces form one installation boundary and must change together.
+
+### 2. Signatures
+
+- `GET /install-agent.sh` returns the public bootstrap script without an
+  enrollment secret.
+- `POST /api/v1/admin/enrollments` returns distinct `install_command` and
+  `enroll_command` fields plus the one-time token and expiry.
+- Control accepts `--agent-release-base-url HTTPS_URL` and
+  `--agent-release-version VERSION`.
+- A tag release contains `vps-status-agent-linux-amd64`,
+  `vps-status-agent-linux-arm64`, `install-agent.sh`,
+  `uninstall-agent.sh`, `vps-status-agent.service`, the Control binary, and one
+  `SHA256SUMS` covering all assets.
+
+### 3. Contracts
+
+- The bootstrap supports Linux amd64/arm64 with systemd, detects architecture,
+  downloads one explicit version over HTTPS, verifies every consumed asset
+  against `SHA256SUMS`, and only then executes the installer.
+- The Release base URL has no credentials, query, or fragment. The version is
+  a path-safe 1–64 byte identifier. Neither value may be interpolated into the
+  shell script before normalization and shell quoting.
+- The token remains a short-lived, single-use command argument; installers
+  never print it. Enrollment still sends it only in the Authorization header.
+- `.github/workflows/release.yml` must publish the complete verified `dist/`
+  set to the GitHub Release matching the tag, not only to an Actions Artifact.
+
+### 4. Validation & Error Matrix
+
+| Condition | Result |
+|---|---|
+| Non-HTTPS Release base, credentials, query, or fragment | Control startup fails |
+| Version contains a slash, shell syntax, or exceeds 64 bytes | Control startup fails |
+| Unsupported OS/architecture or missing required command | Bootstrap exits before download/install |
+| Missing, duplicate, malformed, or mismatched checksum | Bootstrap exits before installer execution |
+| Enrollment token expired/used | Existing `401 enrollment_invalid` behavior |
+| Tag workflow rerun | Existing Release assets are uploaded with `--clobber` |
+
+### 5. Good / Base / Bad Cases
+
+- Good: a tagged Control generates a command that downloads the same tag's
+  amd64/arm64 Agent and verified systemd assets, then enrolls once.
+- Base: an operator points a source build or mirror at an explicit published
+  version with both release flags.
+- Bad: the build creates correct files but the workflow only stores an Actions
+  Artifact; the default `/releases/download/<tag>/...` installer then 404s.
+
+### 6. Tests Required
+
+- Unit-test Release URL/version injection rejection and shell syntax of the
+  rendered public bootstrap.
+- Contract-test that enrollment returns both command fields and never places
+  the token in a URL query.
+- Run `sh -n` on release/install/uninstall scripts, build a release-shaped
+  directory, and run `sha256sum -c SHA256SUMS` across every asset.
+- Keep the tag workflow's published file set equal to the checksum file's
+  release asset set whenever an asset name changes.
+
+### 7. Wrong vs Correct
+
+Wrong: build `dist/*` and upload only an Actions Artifact while the installer
+points at GitHub Releases.
+
+Correct: verify `SHA256SUMS`, retain the Actions Artifact for CI evidence, and
+create or update the matching GitHub Release with the complete `dist/*` set.
+
 ## Backup boundary
 
 - Default backups include `control.db` and the paired `master.key`.

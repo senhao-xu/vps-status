@@ -10,5 +10,7 @@ describe('responsive and keyboard presentation', () => {
     expect(styles).toContain('@media (max-width: 420px)')
     expect(styles).toContain(':focus-visible')
     expect(styles).toContain('prefers-reduced-motion')
+    expect(styles).toContain(':root[data-theme="light"]')
+    expect(styles).toContain('.preference-controls')
   })
 })

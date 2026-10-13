@@ -74,7 +74,17 @@ for binary in "$output"/vps-status-*; do
   fi
 done
 
+install -m 0755 deploy/systemd/install-agent.sh "$output/install-agent.sh"
+install -m 0755 deploy/systemd/uninstall-agent.sh "$output/uninstall-agent.sh"
+install -m 0644 deploy/systemd/vps-status-agent.service "$output/vps-status-agent.service"
+
 (
   cd "$output"
-  sha256sum vps-status-control-linux-amd64 vps-status-agent-linux-amd64 vps-status-agent-linux-arm64 > SHA256SUMS
+  sha256sum \
+    vps-status-control-linux-amd64 \
+    vps-status-agent-linux-amd64 \
+    vps-status-agent-linux-arm64 \
+    install-agent.sh \
+    uninstall-agent.sh \
+    vps-status-agent.service > SHA256SUMS
 )

@@ -61,7 +61,7 @@ export async function apiRequest<T>(
 
 export async function apiMutation(
   path: string,
-  options: { method?: string; body?: unknown; csrf?: string } = {},
+  options: { method?: string; body?: unknown; csrf?: string; signal?: AbortSignal } = {},
 ): Promise<void> {
   const headers = new Headers()
   if (options.body !== undefined) headers.set('Content-Type', 'application/json')
@@ -72,6 +72,7 @@ export async function apiMutation(
     headers,
     credentials: 'same-origin',
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    signal: options.signal,
   })
   if (!response.ok) {
     const payload = await responseJSON(response)
@@ -85,7 +86,18 @@ export async function apiMutation(
   }
 }
 
-export function errorMessage(error: unknown): string {
-  if (error instanceof APIError || error instanceof Error) return error.message
+type ErrorTranslator = (
+  key: 'controlInvalidResponse' | 'requestFailed' | 'requestCouldNotComplete',
+  values?: Record<string, string | number>,
+) => string
+
+export function errorMessage(error: unknown, translate?: ErrorTranslator): string {
+  if (error instanceof APIError) {
+    if (translate && error.code === 'response_invalid') return translate('controlInvalidResponse')
+    if (translate && error.code === 'request_failed') return translate('requestFailed', { status: error.status })
+    return error.message
+  }
+  if (translate) return translate('requestCouldNotComplete')
+  if (error instanceof Error) return error.message
   return 'The request could not be completed.'
 }

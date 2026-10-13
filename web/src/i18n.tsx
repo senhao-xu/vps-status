@@ -1,0 +1,324 @@
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+
+export type Language = 'en' | 'zh'
+
+const languagePreferenceKey = 'vps-status.language'
+
+const en = {
+  savingTheme: 'Saving theme…', pollRetrying: 'Status is temporarily unavailable. Retrying automatically.', showHiddenNodes: 'Show hidden nodes',
+  browserTheme: 'Browser theme', followSite: 'Follow site', themeManagement: 'Theme management',
+  themeManagementDescription: 'Choose the default appearance for your site. Visitors follow this choice unless they select a browser theme.',
+  emeraldDescription: 'Emerald accents, a soft lime glow, and compact translucent cards.',
+  classicDescription: 'The original blue palette with solid surfaces and familiar contrast.',
+  siteDefault: 'Site default', saveSiteTheme: 'Save site theme', siteThemeSaved: 'Site theme saved.', previewTheme: 'Preview {{name}}',
+  themeOverrideNotice: 'This browser is previewing {{name}}. Choose Follow site to use the site default.',
+  addNode: 'Add node', allGroups: 'All groups', searchNodes: 'Search nodes', searchPlaceholder: 'Name or group…',
+  cardView: 'Card view', listView: 'List view', totalNodes: 'Total nodes', groups: 'Groups', noMatchingNodes: 'No nodes match your filters.',
+  clearFilters: 'Clear filters', resourceUsage: 'Resource usage', networkTraffic: 'Network & traffic', nodeSettings: 'Node settings',
+  historyTrends: 'History trends', close: 'Close', backToNodes: 'Back to nodes', installation: 'Installation',
+  installationDescription: 'Name your Linux server, then run the generated command on it.',
+  runInstallCommand: 'Run this command on your server', commandOnce: 'Save this command before closing. It is shown only once.',
+  installationPending: 'Waiting for installation', installationRegistered: 'Registered · waiting for first report',
+  installationOnline: 'Online · installation complete', installationExpired: 'Install command expired',
+  pendingDescription: 'Run the command below. This window will update automatically.',
+  registeredDescription: 'Your node has registered. Waiting for the Agent to connect and report.',
+  onlineDescription: 'Your node is online and ready to monitor.', expiredDescription: 'Generate a new command to continue installing.',
+  revokeInstallCommand: 'Revoke command', regenerateCommand: 'Generate new command', enrollmentRevoked: 'The unused install command was revoked.',
+  enrollmentConsumed: 'The command was already used. Its current installation state has been refreshed.',
+  installationStatusMissing: 'This installation record is unavailable. Check the node list before closing this dialog and adding a node again.',
+  viewNode: 'View node', checkingInstallation: 'Checking installation…', pollStopped: 'Automatic checks stopped. Refresh the status to try again.',
+  refreshStatus: 'Refresh status', installStep: 'Install', readyStep: 'Ready', offlineMetrics: 'Current metrics unavailable while offline.',
+  installInProgress: 'Working…', connectionCounts: 'TCP / UDP connections', swap: 'Swap',
+  languageSwitch: '中文',
+  languageSwitchLabel: 'Switch language to Chinese',
+  themeLight: 'Light theme',
+  themeDark: 'Dark theme',
+  themeSwitchToLight: 'Switch to light theme',
+  themeSwitchToDark: 'Switch to dark theme',
+  checkingSession: 'Checking Control session…',
+  firstRun: 'First run',
+  createAdministrator: 'Create the administrator',
+  singleAdministrator: 'This Control has exactly one administrator account.',
+  username: 'Username',
+  password: 'Password',
+  creating: 'Creating…',
+  administratorLogin: 'Administrator login',
+  mfaOrRecoveryCode: 'MFA or recovery code',
+  enterMfa: 'Enter a TOTP or unused recovery code.',
+  signingIn: 'Signing in…',
+  signIn: 'Sign in',
+  openPublicStatus: 'Open public status',
+  adminSections: 'Administrator sections',
+  nodes: 'Nodes',
+  tcpProbes: 'TCP probes',
+  alerts: 'Alerts',
+  telemetryStorage: 'Telemetry storage',
+  publicPage: 'Public page',
+  security: 'Security',
+  signOut: 'Sign out',
+  publicPageNewWindow: 'Public page ↗',
+  loadingAdmin: 'Loading administration data…',
+  fleetOverview: 'Fleet overview',
+  liveSseDescription: 'Live values arrive over an authenticated SSE stream.',
+  onlineCount: '{{online}}/{{total}} online',
+  noNodes: 'No nodes enrolled yet.',
+  online: 'Online',
+  stale: 'Stale',
+  offline: 'Offline',
+  ungrouped: 'Ungrouped',
+  enrollLinuxNode: 'Enroll a Linux node',
+  displayName: 'Display name',
+  controlUrl: 'Control URL',
+  createInstallCommand: 'Create one-time install command',
+  oneCommandInstall: 'One-command installation (Linux amd64/arm64 with systemd):',
+  copyInstallCommand: 'Copy install command',
+  installCommandCopied: 'Install command copied.',
+  copyCommandFailed: 'Could not copy automatically; select the command above.',
+  manualEnrollCommand: 'Manual enrollment (Agent must already be installed):',
+  tokenShownOnce: 'Token (shown once): {{token}}',
+  expires: 'Expires: {{time}}',
+  lastReport: 'Last report {{time}}',
+  cpu: 'CPU',
+  loadOne: 'Load (1m)',
+  memory: 'Memory',
+  disk: 'Disk',
+  uptime: 'Uptime',
+  processes: 'Processes',
+  monthReceived: 'Month received',
+  monthSent: 'Month sent',
+  hostIdentity: 'Host identity (administrator only)',
+  hostname: 'Hostname',
+  osKernel: 'OS / kernel',
+  architecture: 'Architecture',
+  unknown: 'Unknown',
+  loadingHistory: 'Loading history and UTC-month traffic…',
+  historyUnavailable: 'History unavailable: {{message}}',
+  cpuHistory: 'CPU history',
+  networkReceiveHistory: 'Network receive history',
+  groupRegion: 'Group / region',
+  hideAdminOverview: 'Hide in administrator overview',
+  saveNode: 'Save node',
+  nodeUpdated: 'Node metadata updated.',
+  rotateCredential: 'Rotate credential',
+  credentialShownOnce: 'New node credential (shown once): {{credential}}',
+  revokeCredentials: 'Revoke credentials',
+  deleteNode: 'Delete node',
+  confirmRevokeCredentials: 'Revoke every credential for {{name}}? The Agent will disconnect immediately.',
+  credentialsRevoked: 'Node credentials revoked.',
+  confirmDeleteNode: 'Delete {{name}}? Historical cleanup will be queued.',
+  nodeDeleted: 'Node deleted.',
+  createTcpProbe: 'Create connect-only TCP probe',
+  tcpProbeDescription: '5–3600 second interval; the Agent connects and immediately closes without payload or banner reads.',
+  name: 'Name',
+  host: 'Host',
+  port: 'Port',
+  intervalSeconds: 'Interval (seconds)',
+  executionNodes: 'Execution nodes (maximum 64 tasks per node)',
+  createProbe: 'Create probe',
+  probeCreated: 'TCP probe created.',
+  probeTasks: 'Probe tasks',
+  noProbes: 'No TCP probes configured.',
+  everySeconds: 'every {{seconds}}s',
+  currentFailureRate: 'Current failure rate {{rate}}',
+  noResults: 'No results',
+  deleteNamed: 'Delete {{name}}',
+  confirmDeleteProbe: 'Delete TCP probe {{name}}? Its retained history will be cleaned up.',
+  probeDeleted: 'Probe deleted.',
+  historyTitle: '{{name}} history',
+  loadingProbeHistory: 'Loading probe history…',
+  probeHistoryUnavailable: 'Probe history unavailable: {{message}}',
+  assignProbe: 'Assign this probe to a node to collect history.',
+  tcpLatency: 'TCP latency',
+  tcpFailureRate: 'TCP failure rate',
+  notificationChannels: 'Notification channels',
+  secretsEncrypted: 'Secrets are write-only and encrypted at rest.',
+  kind: 'Kind',
+  webhook: 'Webhook',
+  telegram: 'Telegram',
+  webhookUrl: 'Webhook URL',
+  webhookSecret: 'Webhook HMAC secret',
+  telegramToken: 'Telegram bot token',
+  telegramChatId: 'Telegram chat ID',
+  createChannel: 'Create channel',
+  channelCreated: 'Notification channel created.',
+  configured: 'Configured',
+  incomplete: 'Incomplete',
+  enabled: 'Enabled',
+  disabled: 'Disabled',
+  enable: 'Enable',
+  disable: 'Disable',
+  channelEnabled: 'Channel enabled.',
+  channelDisabled: 'Channel disabled.',
+  test: 'Test',
+  testQueued: 'Test notification queued.',
+  delete: 'Delete',
+  confirmDeleteChannel: 'Delete notification channel {{name}}? It will be removed from every alert rule.',
+  channelDeleted: 'Channel deleted.',
+  alertRules: 'Alert rules',
+  scope: 'Scope',
+  node: 'Node',
+  group: 'Group',
+  nodeIdOrGroup: 'Node ID or group',
+  metric: 'Metric',
+  memoryPercent: 'Memory %',
+  diskPercent: 'Disk %',
+  trafficRate: 'Traffic bytes/s',
+  threshold: 'Threshold',
+  durationSeconds: 'Duration (seconds)',
+  recoveryHysteresis: 'Recovery hysteresis',
+  channels: 'Channels',
+  createRule: 'Create rule',
+  ruleCreated: 'Alert rule created.',
+  ruleEnabled: 'Rule enabled.',
+  ruleDisabled: 'Rule disabled.',
+  confirmDeleteRule: 'Delete alert rule {{name}}? Its current state and pending deliveries will be removed.',
+  ruleDeleted: 'Rule deleted.',
+  historySeparate: 'History is physically separate from control.db.',
+  writable: 'Writable',
+  unavailable: 'Unavailable',
+  mainDatabase: 'Main',
+  total: 'Total',
+  freeDisk: 'Free disk',
+  oldestRetained: 'Oldest retained',
+  freePages: 'Free pages',
+  droppedBuckets: 'Dropped buckets',
+  checkpointWal: 'Checkpoint WAL',
+  checkpointComplete: 'WAL checkpoint complete.',
+  reclaimPages: 'Reclaim 1,024 pages',
+  incrementalVacuumComplete: 'Incremental vacuum complete.',
+  fullVacuum: 'Full vacuum',
+  fullVacuumComplete: 'Full vacuum complete.',
+  historyCleanup: 'History cleanup',
+  cleanupDescription: 'Clear history preserves lifetime and monthly traffic. Reset all telemetry also removes traffic totals.',
+  typeConfirmation: 'Type clear_history or reset_all_telemetry',
+  clearHistory: 'Clear history',
+  historyCleared: 'History cleared; traffic preserved.',
+  resetTelemetry: 'Reset all telemetry',
+  telemetryReset: 'All telemetry reset.',
+  publicationAllowlist: 'Server-side publication allowlist',
+  publicationDescription: 'Every node is private by default. The public API uses a separate DTO and never exposes host identity or history.',
+  enablePublicPage: 'Enable public page',
+  title: 'Title',
+  description: 'Description',
+  publishedNodes: 'Published nodes',
+  savePublication: 'Save publication settings',
+  publicationSaved: 'Public page configuration saved.',
+  multiFactorAuthentication: 'Multi-factor authentication',
+  statusLabel: 'Status:',
+  setupTotp: 'Set up TOTP',
+  authenticatorSecret: 'Add this secret to your authenticator. It is shown only during setup.',
+  sixDigitCode: 'Six-digit code',
+  confirmTotp: 'Confirm TOTP',
+  recoveryCodes: 'Recovery codes — save now',
+  disableMfa: 'Disable MFA',
+  mfaDisabled: 'MFA disabled.',
+  mfaRecoveryNotice: 'If both TOTP and recovery codes are lost, MFA can only be reset through the local Control CLI with direct data-directory access.',
+  loadingPublicStatus: 'Loading public status…',
+  publicDisabled: 'This public status page is not enabled.',
+  publicStatus: 'Public status',
+  timezoneNote: 'Times use your browser timezone. Traffic totals use the current UTC month.',
+  noPublishedNodes: 'No nodes are published.',
+  download: 'Download',
+  upload: 'Upload',
+  readOnlyPublicView: 'VPS Status · read-only public view',
+  noRetainedValues: 'No retained values are available for this range.',
+  chartTrend: '{{title}} trend with {{count}} retained points',
+  accessibleDataTable: 'Accessible data table',
+  time: 'Time',
+  value: 'Value',
+  controlInvalidResponse: 'Control returned an invalid response.',
+  requestFailed: 'Request failed ({{status}}).',
+  requestCouldNotComplete: 'The request could not be completed.',
+} as const
+
+export type TranslationKey = keyof typeof en
+type Dictionary = Record<TranslationKey, string>
+
+const zh: Dictionary = {
+  savingTheme: '正在保存主题…', pollRetrying: '暂时无法读取状态，正在自动重试。', showHiddenNodes: '显示隐藏节点',
+  browserTheme: '浏览器主题', followSite: '跟随站点', themeManagement: '主题管理',
+  themeManagementDescription: '设置站点的默认外观。访客在未选择浏览器主题时使用此设置。',
+  emeraldDescription: '翠绿强调色、青柠柔光背景与紧凑的半透明卡片。', classicDescription: '保留原有蓝色色板、实色表面与熟悉的对比度。',
+  siteDefault: '站点默认', saveSiteTheme: '保存站点主题', siteThemeSaved: '站点主题已保存。', previewTheme: '预览 {{name}}',
+  themeOverrideNotice: '此浏览器正在预览 {{name}}。选择“跟随站点”即可使用站点默认主题。',
+  addNode: '添加节点', allGroups: '全部分组', searchNodes: '搜索节点', searchPlaceholder: '名称或分组…',
+  cardView: '卡片视图', listView: '列表视图', totalNodes: '节点总数', groups: '分组', noMatchingNodes: '没有符合筛选条件的节点。',
+  clearFilters: '清除筛选', resourceUsage: '资源使用', networkTraffic: '网络与流量', nodeSettings: '节点设置',
+  historyTrends: '历史趋势', close: '关闭', backToNodes: '返回节点', installation: '节点安装',
+  installationDescription: '为 Linux 服务器命名，然后在服务器上运行生成的命令。',
+  runInstallCommand: '在服务器上运行此命令', commandOnce: '关闭前请保存命令，此命令仅展示一次。',
+  installationPending: '等待安装', installationRegistered: '已注册 · 等待首次上报', installationOnline: '在线 · 安装完成', installationExpired: '安装命令已过期',
+  pendingDescription: '运行下方命令后，此窗口将自动更新安装状态。', registeredDescription: '节点已注册，正在等待 Agent 连接并上报。',
+  onlineDescription: '节点已在线，可以开始监控。', expiredDescription: '请生成新命令以继续安装。',
+  revokeInstallCommand: '撤销命令', regenerateCommand: '重新生成命令', enrollmentRevoked: '未使用的安装命令已撤销。',
+  enrollmentConsumed: '命令已被使用，已刷新当前安装状态。', viewNode: '查看节点', checkingInstallation: '正在检查安装状态…',
+  installationStatusMissing: '安装记录已不可用。请先检查节点列表，再关闭此窗口并重新添加节点。',
+  pollStopped: '自动检查已停止，请刷新状态重试。', refreshStatus: '刷新状态', installStep: '安装', readyStep: '完成',
+  offlineMetrics: '节点离线时当前指标不可用。', installInProgress: '处理中…', connectionCounts: 'TCP / UDP 连接数', swap: 'Swap',
+  languageSwitch: 'English', languageSwitchLabel: '切换语言为英文', themeLight: '明亮主题', themeDark: '深色主题', themeSwitchToLight: '切换为明亮主题', themeSwitchToDark: '切换为深色主题',
+  checkingSession: '正在检查 Control 会话…', firstRun: '首次运行', createAdministrator: '创建管理员', singleAdministrator: '此 Control 仅有一个管理员账户。', username: '用户名', password: '密码', creating: '正在创建…', administratorLogin: '管理员登录', mfaOrRecoveryCode: 'MFA 或恢复码', enterMfa: '请输入 TOTP 或未使用的恢复码。', signingIn: '正在登录…', signIn: '登录', openPublicStatus: '打开公开状态页',
+  adminSections: '管理功能', nodes: '节点', tcpProbes: 'TCP 探测', alerts: '告警', telemetryStorage: '遥测存储', publicPage: '公开页面', security: '安全', signOut: '退出登录', publicPageNewWindow: '公开页面 ↗', loadingAdmin: '正在加载管理数据…',
+  fleetOverview: '节点总览', liveSseDescription: '实时数据通过经过身份验证的 SSE 流传入。', onlineCount: '{{online}}/{{total}} 在线', noNodes: '尚未接入节点。', online: '在线', stale: '数据过期', offline: '离线', ungrouped: '未分组', enrollLinuxNode: '接入 Linux 节点', displayName: '显示名称', controlUrl: 'Control 地址', createInstallCommand: '创建一次性安装命令', oneCommandInstall: '一键安装（Linux amd64/arm64、systemd）：', copyInstallCommand: '复制安装命令', installCommandCopied: '安装命令已复制。', copyCommandFailed: '无法自动复制，请手动选择上方命令。', manualEnrollCommand: '手动注册（需要预先安装 Agent）：', tokenShownOnce: '令牌（仅显示一次）：{{token}}', expires: '过期时间：{{time}}', lastReport: '最近上报 {{time}}',
+  cpu: 'CPU', loadOne: '负载（1 分钟）', memory: '内存', disk: '磁盘', uptime: '运行时间', processes: '进程数', monthReceived: '本月接收', monthSent: '本月发送', hostIdentity: '主机身份（仅管理员可见）', hostname: '主机名', osKernel: '操作系统 / 内核', architecture: '架构', unknown: '未知', loadingHistory: '正在加载历史和 UTC 当月流量…', historyUnavailable: '历史不可用：{{message}}', cpuHistory: 'CPU 历史', networkReceiveHistory: '网络接收历史', groupRegion: '分组 / 地区', hideAdminOverview: '在管理员总览中隐藏', saveNode: '保存节点', nodeUpdated: '节点信息已更新。', rotateCredential: '轮换凭据', credentialShownOnce: '新节点凭据（仅显示一次）：{{credential}}', revokeCredentials: '吊销凭据', deleteNode: '删除节点', confirmRevokeCredentials: '吊销 {{name}} 的全部凭据？Agent 将立即断开。', credentialsRevoked: '节点凭据已吊销。', confirmDeleteNode: '删除 {{name}}？系统将排队清理历史数据。', nodeDeleted: '节点已删除。',
+  createTcpProbe: '创建仅连接 TCP 探测', tcpProbeDescription: '间隔为 5–3600 秒；Agent 建立连接后立即关闭，不发送数据或读取 Banner。', name: '名称', host: '主机', port: '端口', intervalSeconds: '间隔（秒）', executionNodes: '执行节点（每个节点最多 64 个任务）', createProbe: '创建探测', probeCreated: 'TCP 探测已创建。', probeTasks: '探测任务', noProbes: '尚未配置 TCP 探测。', everySeconds: '每 {{seconds}} 秒', currentFailureRate: '当前失败率 {{rate}}', noResults: '暂无结果', deleteNamed: '删除 {{name}}', confirmDeleteProbe: '删除 TCP 探测 {{name}}？其保留的历史数据将被清理。', probeDeleted: '探测已删除。', historyTitle: '{{name}} 历史', loadingProbeHistory: '正在加载探测历史…', probeHistoryUnavailable: '探测历史不可用：{{message}}', assignProbe: '将此探测分配给节点后即可收集历史。', tcpLatency: 'TCP 延迟', tcpFailureRate: 'TCP 失败率',
+  notificationChannels: '通知渠道', secretsEncrypted: '密钥只写，并以加密形式存储。', kind: '类型', webhook: 'Webhook', telegram: 'Telegram', webhookUrl: 'Webhook 地址', webhookSecret: 'Webhook HMAC 密钥', telegramToken: 'Telegram Bot 令牌', telegramChatId: 'Telegram 聊天 ID', createChannel: '创建渠道', channelCreated: '通知渠道已创建。', configured: '已配置', incomplete: '未完成', enabled: '已启用', disabled: '已禁用', enable: '启用', disable: '禁用', channelEnabled: '渠道已启用。', channelDisabled: '渠道已禁用。', test: '测试', testQueued: '测试通知已排队。', delete: '删除', confirmDeleteChannel: '删除通知渠道 {{name}}？所有告警规则都将移除此渠道。', channelDeleted: '渠道已删除。',
+  alertRules: '告警规则', scope: '范围', node: '节点', group: '分组', nodeIdOrGroup: '节点 ID 或分组', metric: '指标', memoryPercent: '内存 %', diskPercent: '磁盘 %', trafficRate: '流量 字节/秒', threshold: '阈值', durationSeconds: '持续时间（秒）', recoveryHysteresis: '恢复回差', channels: '通知渠道', createRule: '创建规则', ruleCreated: '告警规则已创建。', ruleEnabled: '规则已启用。', ruleDisabled: '规则已禁用。', confirmDeleteRule: '删除告警规则 {{name}}？其当前状态和待发送通知将被移除。', ruleDeleted: '规则已删除。',
+  historySeparate: '历史数据与 control.db 物理隔离。', writable: '可写', unavailable: '不可用', mainDatabase: '主文件', total: '总计', freeDisk: '磁盘可用空间', oldestRetained: '最早保留时间', freePages: '空闲页', droppedBuckets: '丢弃的数据桶', checkpointWal: '检查点 WAL', checkpointComplete: 'WAL 检查点已完成。', reclaimPages: '回收 1,024 页', incrementalVacuumComplete: '增量回收已完成。', fullVacuum: '完整回收', fullVacuumComplete: '完整回收已完成。', historyCleanup: '历史清理', cleanupDescription: '清空历史会保留累计和月流量；重置全部遥测还会删除流量汇总。', typeConfirmation: '输入 clear_history 或 reset_all_telemetry', clearHistory: '清空历史', historyCleared: '历史已清空，流量数据已保留。', resetTelemetry: '重置全部遥测', telemetryReset: '全部遥测已重置。',
+  publicationAllowlist: '服务端公开白名单', publicationDescription: '所有节点默认私有。公开 API 使用独立 DTO，绝不暴露主机身份或历史数据。', enablePublicPage: '启用公开页面', title: '标题', description: '描述', publishedNodes: '公开节点', savePublication: '保存公开设置', publicationSaved: '公开页面设置已保存。',
+  multiFactorAuthentication: '多因素认证', statusLabel: '状态：', setupTotp: '设置 TOTP', authenticatorSecret: '将此密钥添加到身份验证器。密钥仅在设置期间显示。', sixDigitCode: '六位验证码', confirmTotp: '确认 TOTP', recoveryCodes: '恢复码 — 请立即保存', disableMfa: '禁用 MFA', mfaDisabled: 'MFA 已禁用。', mfaRecoveryNotice: '如果 TOTP 和恢复码均丢失，只能通过可直接访问数据目录的本地 Control CLI 重置 MFA。',
+  loadingPublicStatus: '正在加载公开状态…', publicDisabled: '此公开状态页尚未启用。', publicStatus: '公开状态', timezoneNote: '时间使用浏览器时区，流量汇总使用当前 UTC 月份。', noPublishedNodes: '尚未公开节点。', download: '下载', upload: '上传', readOnlyPublicView: 'VPS Status · 只读公开视图', noRetainedValues: '此时间范围内没有保留的数据。', chartTrend: '{{title}}趋势，共 {{count}} 个保留数据点', accessibleDataTable: '无障碍数据表', time: '时间', value: '数值', controlInvalidResponse: 'Control 返回了无效响应。', requestFailed: '请求失败（{{status}}）。', requestCouldNotComplete: '无法完成请求。',
+}
+
+const dictionaries: Record<Language, Dictionary> = { en, zh }
+
+export function translate(language: Language, key: TranslationKey, values: Record<string, string | number> = {}): string {
+  let result = dictionaries[language][key]
+  for (const [name, value] of Object.entries(values)) result = result.replaceAll(`{{${name}}}`, String(value))
+  return result
+}
+
+interface StoredLanguage { version: 1; value: Language }
+
+export function resolveInitialLanguage(stored: string | null, browserLanguage: string): Language {
+  if (stored !== null) {
+    try {
+      const parsed: unknown = JSON.parse(stored)
+      if (typeof parsed === 'object' && parsed !== null && 'version' in parsed && 'value' in parsed &&
+        parsed.version === 1 && (parsed.value === 'en' || parsed.value === 'zh')) return parsed.value
+    } catch { /* Fall through to the browser preference. */ }
+  }
+  return browserLanguage.toLowerCase().startsWith('zh') ? 'zh' : 'en'
+}
+
+interface I18nContextValue {
+  language: Language
+  setLanguage: (language: Language) => void
+  t: (key: TranslationKey, values?: Record<string, string | number>) => string
+}
+
+const I18nContext = createContext<I18nContextValue | null>(null)
+
+function initialLanguage(): Language {
+  if (typeof window === 'undefined') return 'en'
+  let stored: string | null = null
+  try { stored = window.localStorage.getItem(languagePreferenceKey) } catch { /* Storage may be unavailable. */ }
+  return resolveInitialLanguage(stored, window.navigator.language)
+}
+
+export function I18nProvider({ children }: { children: ReactNode }) {
+  const [language, setLanguage] = useState<Language>(initialLanguage)
+  useEffect(() => {
+    document.documentElement.lang = language === 'zh' ? 'zh-CN' : 'en'
+    const preference: StoredLanguage = { version: 1, value: language }
+    try { window.localStorage.setItem(languagePreferenceKey, JSON.stringify(preference)) } catch { /* The UI still works without persistence. */ }
+  }, [language])
+  const t = useCallback((key: TranslationKey, values?: Record<string, string | number>) => translate(language, key, values), [language])
+  const value = useMemo(() => ({ language, setLanguage, t }), [language, t])
+  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
+}
+
+export function useI18n(): I18nContextValue {
+  const context = useContext(I18nContext)
+  if (context === null) throw new Error('useI18n must be used inside I18nProvider')
+  return context
+}

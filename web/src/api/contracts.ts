@@ -633,14 +633,44 @@ export function decodeRecoveryCodes(value: unknown): string[] {
   return stringArray(root.recovery_codes, 'recovery_codes')
 }
 
-export function decodeEnrollment(value: unknown): { enrollmentToken: string; installCommand: string; expiresAt: string } {
+export interface Enrollment { id: string; enrollmentToken: string; installCommand: string; enrollCommand: string; expiresAt: string }
+
+export function decodeEnrollment(value: unknown): Enrollment {
   const root = object(value, 'enrollment')
-  allowedKeys(root, ['id', 'enrollment_token', 'expires_at', 'install_command'], 'enrollment')
-  string(root.id, 'id')
+  allowedKeys(root, ['id', 'enrollment_token', 'expires_at', 'install_command', 'enroll_command'], 'enrollment')
   return {
+    id: string(root.id, 'id'),
     enrollmentToken: string(root.enrollment_token, 'enrollment_token'),
     installCommand: string(root.install_command, 'install_command'),
+    enrollCommand: string(root.enroll_command, 'enroll_command'),
     expiresAt: iso(root.expires_at, 'expires_at'),
+  }
+}
+
+export type VisualTheme = 'emerald' | 'classic'
+export const builtInThemes: readonly VisualTheme[] = ['emerald', 'classic']
+
+export function decodeAppearance(value: unknown): { defaultTheme: VisualTheme } {
+  const root = object(value, 'appearance')
+  allowedKeys(root, ['default_theme'], 'appearance')
+  if (root.default_theme !== 'emerald' && root.default_theme !== 'classic') throw new Error('unknown built-in theme')
+  return { defaultTheme: root.default_theme }
+}
+
+export type EnrollmentStatus =
+  | { id: string; nodeName: string; expiresAt: string; status: 'pending' | 'expired'; nodeId?: never }
+  | { id: string; nodeName: string; expiresAt: string; status: 'registered' | 'online'; nodeId: string }
+
+export function decodeEnrollmentStatus(value: unknown): EnrollmentStatus {
+  const root = object(value, 'enrollment status')
+  allowedKeys(root, ['id', 'node_name', 'expires_at', 'status', 'node_id'], 'enrollment status')
+  const base = { id: string(root.id, 'id'), nodeName: string(root.node_name, 'node_name'), expiresAt: iso(root.expires_at, 'expires_at') }
+  switch (root.status) {
+    case 'pending': case 'expired':
+      if (root.node_id !== undefined) throw new Error('unconsumed enrollment contains a node ID')
+      return { ...base, status: root.status }
+    case 'registered': case 'online': return { ...base, status: root.status, nodeId: string(root.node_id, 'node_id') }
+    default: throw new Error('unknown enrollment status')
   }
 }
 

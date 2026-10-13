@@ -1,4 +1,5 @@
 import { formatTime } from '../format'
+import { useI18n } from '../i18n'
 
 interface ChartPoint {
   at: string
@@ -12,6 +13,7 @@ interface MetricChartProps {
 }
 
 export function MetricChart({ title, points, formatValue }: MetricChartProps) {
+  const { language, t } = useI18n()
   const valid = points.filter((point): point is ChartPoint & { value: number } => point.value !== null)
   const max = Math.max(1, ...valid.map((point) => point.value))
   const width = 640
@@ -33,20 +35,20 @@ export function MetricChart({ title, points, formatValue }: MetricChartProps) {
         <strong>{formatValue(latest)}</strong>
       </div>
       {valid.length === 0 ? (
-        <p className="empty">No retained values are available for this range.</p>
+        <p className="empty">{t('noRetainedValues')}</p>
       ) : (
         <>
-          <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`${title} trend with ${valid.length} retained points`}>
+          <svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={t('chartTrend', { title, count: valid.length })}>
             <path d={line} fill="none" stroke="currentColor" strokeWidth="3" vectorEffect="non-scaling-stroke" />
           </svg>
           <details>
-            <summary>Accessible data table</summary>
+            <summary>{t('accessibleDataTable')}</summary>
             <div className="table-scroll">
               <table>
-                <thead><tr><th scope="col">Time</th><th scope="col">Value</th></tr></thead>
+                <thead><tr><th scope="col">{t('time')}</th><th scope="col">{t('value')}</th></tr></thead>
                 <tbody>
                   {points.slice(-24).map((point) => (
-                    <tr key={point.at}><td>{formatTime(point.at)}</td><td>{formatValue(point.value)}</td></tr>
+                    <tr key={point.at}><td>{formatTime(point.at, language)}</td><td>{formatValue(point.value)}</td></tr>
                   ))}
                 </tbody>
               </table>

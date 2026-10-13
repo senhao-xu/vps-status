@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react'
 
 import { apiRequest, errorMessage } from '../../api/client'
 import { decodePublicStatus, type PublicStatus } from '../../api/contracts'
-import { formatBytes, formatDuration, formatPercent, formatRate, ratio } from '../../format'
+import { PreferenceControls } from '../../components/PreferenceControls'
+import { FleetSummary, filterNodes, NodeFilters, type NodeView } from '../../components/NodeFilters'
+import { NodeCardBody } from '../../components/NodeMetrics'
+import { formatBytes } from '../../format'
+import { useI18n } from '../../i18n'
 
 type PublicState =
   | { status: 'loading' }
@@ -10,6 +14,7 @@ type PublicState =
   | { status: 'success'; data: PublicStatus }
 
 export function PublicStatusPage() {
+  const { t } = useI18n()
   const [state, setState] = useState<PublicState>({ status: 'loading' })
 
   useEffect(() => {
@@ -23,7 +28,7 @@ export function PublicStatusPage() {
         const data = await apiRequest('/api/v1/public/status', decodePublicStatus, { signal: controller.signal })
         if (!disposed && requestSequence === sequence) setState({ status: 'success', data })
       } catch (error) {
-        if (!disposed && requestSequence === sequence) setState({ status: 'error', message: errorMessage(error) })
+        if (!disposed && requestSequence === sequence) setState({ status: 'error', message: errorMessage(error, t) })
       } finally {
         if (!disposed) timer = window.setTimeout(() => void load(), 15_000)
       }
@@ -34,46 +39,45 @@ export function PublicStatusPage() {
       controller.abort()
       if (timer !== null) window.clearTimeout(timer)
     }
-  }, [])
+  }, [t])
 
-  if (state.status === 'loading') return <main className="public-shell"><p role="status">Loading public status…</p></main>
-  if (state.status === 'error') return <main className="public-shell"><div className="notice error" role="alert">{state.message}</div></main>
+  if (state.status === 'loading') return <main className="public-shell"><PreferenceControls /><p role="status">{t('loadingPublicStatus')}</p></main>
+  if (state.status === 'error') return <main className="public-shell"><PreferenceControls /><div className="notice error" role="alert">{state.message}</div></main>
   return <PublicStatusView status={state.data} />
 }
 
 export function PublicStatusView({ status }: { status: PublicStatus }) {
+  const { language, t } = useI18n()
+  const [group, setGroup] = useState('')
+  const [search, setSearch] = useState('')
+  const [view, setView] = useState<NodeView>('cards')
+  const groups = [...new Set(status.nodes.map((node) => node.group).filter(Boolean))].sort()
+  const visible = filterNodes(status.nodes, group, search)
   if (!status.page.enabled) {
-    return <main className="public-shell"><section className="panel"><h1>{status.page.title}</h1><p>This public status page is not enabled.</p></section></main>
+    return <main className="public-shell"><PreferenceControls /><section className="panel"><h1>{status.page.title}</h1><p>{t('publicDisabled')}</p></section></main>
   }
   return (
     <main className="public-shell">
+      <PreferenceControls />
       <header className="public-header">
-        <p className="eyebrow">Public status</p>
+        <p className="eyebrow">{t('publicStatus')}</p>
         <h1>{status.page.title}</h1>
         {status.page.description && <p>{status.page.description}</p>}
-        <p className="timezone-note">Times use your browser timezone. Traffic totals use the current UTC month.</p>
+        <p className="timezone-note">{t('timezoneNote')}</p>
       </header>
-      <section className="public-grid" aria-label="Published nodes">
-        {status.nodes.length === 0 ? <p className="empty">No nodes are published.</p> : status.nodes.map((node, index) => (
+      <div className="public-overview"><FleetSummary total={status.nodes.length} online={status.nodes.filter((node) => node.online).length} groups={groups.length} />
+        <NodeFilters groups={groups} group={group} onGroup={setGroup} search={search} onSearch={setSearch} view={view} onView={setView} /></div>
+      <section className={`public-grid ${view === 'list' ? 'node-list' : ''}`} aria-label={t('publishedNodes')}>
+        {visible.length === 0 ? <p className="empty">{status.nodes.length === 0 ? t('noPublishedNodes') : t('noMatchingNodes')}</p> : visible.map((node, index) => (
           <article className="public-node" key={`${node.group}:${node.name}:${index}`}>
-            <div className="section-heading">
-              <div><p className="muted">{node.group || 'Ungrouped'}</p><h2>{node.name}</h2></div>
-              <span className={`status ${node.online ? 'online' : 'offline'}`}>{node.online ? 'Online' : 'Offline'}</span>
-            </div>
-            <dl className="metric-grid">
-              <div><dt>Uptime</dt><dd>{formatDuration(node.uptimeSeconds)}</dd></div>
-              <div><dt>CPU</dt><dd>{formatPercent(node.cpuUsagePercent)}</dd></div>
-              <div><dt>Memory</dt><dd>{formatPercent(ratio(node.memoryUsedBytes, node.memoryTotalBytes))}</dd></div>
-              <div><dt>Disk</dt><dd>{formatPercent(ratio(node.diskUsedBytes, node.diskTotalBytes))}</dd></div>
-              <div><dt>Download</dt><dd>{formatRate(node.receiveBytesPerSecond)}</dd></div>
-              <div><dt>Upload</dt><dd>{formatRate(node.transmitBytesPerSecond)}</dd></div>
-              <div><dt>Month received</dt><dd>{formatBytes(node.monthReceiveBytes)}</dd></div>
-              <div><dt>Month sent</dt><dd>{formatBytes(node.monthTransmitBytes)}</dd></div>
-            </dl>
+            <NodeCardBody name={node.name} group={node.group} online={node.online} values={node} extra={<dl className="monthly-traffic">
+              <div><dt>{t('monthReceived')}</dt><dd>{formatBytes(node.monthReceiveBytes, language)}</dd></div>
+              <div><dt>{t('monthSent')}</dt><dd>{formatBytes(node.monthTransmitBytes, language)}</dd></div>
+            </dl>} />
           </article>
         ))}
       </section>
-      <footer>VPS Status · read-only public view</footer>
+      <footer>{t('readOnlyPublicView')}</footer>
     </main>
   )
 }
