@@ -75,3 +75,39 @@ Pushed public homepage correction to origin/main and deployed Control with origi
 ### Next Steps
 
 - Public page remains disabled with zero published nodes; administrator must explicitly enable it and select publication allowlist. Main task remains active for outstanding 100 Agent/400 TCP capacity baseline.
+
+
+## Session 3: Security password change deployed
+
+**Date**: 2026-10-13
+**Task**: Security password change deployed
+**Branch**: `main`
+
+### Summary
+
+Implemented, pushed and deployed administrator password change in Security, with current-password verification, confirmation, atomic all-session revocation and localized re-login notice.
+
+### Main Changes
+
+- Control rebuilt and deployed with commit=ab20759 on original 127.0.0.1:18080 and deploy_control-data; no database migration or actual administrator password mutation.
+- Verified backup data/backups/control-pre-password-ab20759.tar.gz; retained rollback image vps-status-control:pre-password-ab20759.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `ab20759` | (see git log) |
+
+### Testing
+
+- [OK] Frontend lint/typecheck/88 tests/build and full Go tests/race/vet/tagged tests/build passed; independent review fixed stale session-refresh response guard.
+- [OK] Real temporary HTTPS Control browser covered password errors, confirmation mismatch, duplicate guard, all-session revocation, old/new/empty password login, SSE closure, delayed refresh and en/zh 320px themes.
+- [OK] Deployed health/readiness, public homepage/admin entry and embedded Security password/MFA forms passed. Production browser mutations intercepted with fixtures; existing real administrator preserved.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Administrator can now use Security -> Change password. Main task remains active for outstanding 100 Agent/400 TCP baseline.
