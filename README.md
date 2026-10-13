@@ -198,7 +198,12 @@ vps-status-control --agent-release-version v0.1.0 \
 Source builds identify as `dev`; set `--agent-release-version` to an existing
 published version before using their generated one-command installer.
 
-The administrator API uses `Secure` cookies. Terminate TLS at a reverse proxy before using it from a browser. If both TOTP and recovery codes are lost, an operator with direct access to the Control data directory can reset MFA and revoke every session:
+The administrator API uses `Secure` cookies. Terminate TLS at a reverse proxy before using it from a browser.
+
+管理员可在后台 **安全 → 修改密码** 中验证当前密码并设置新密码。修改成功后所有
+管理员会话失效，页面返回登录页；原有 MFA 设置保持不变，使用新密码重新登录即可。
+
+If both TOTP and recovery codes are lost, an operator with direct access to the Control data directory can reset MFA and revoke every session:
 
 ```bash
 go run ./cmd/control admin reset-mfa --data-dir ./data

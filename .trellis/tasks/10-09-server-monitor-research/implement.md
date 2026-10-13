@@ -194,6 +194,16 @@ docker compose -f deploy/docker-compose.yml config
 
 ## Review gates
 
+### Security password change (2026-10-13)
+
+- [x] 添加管理员条件改密 + 全会话撤销事务，发放 session 校验密码摘要与 MFA 快照，更新调用方及并发/回滚测试。
+- [x] 添加认证/CSRF/限速保护的 `POST /api/v1/admin/password`；覆盖错误密码、输入错误、cookie 清除、旧会话/旧密码拒绝、新密码登录及 MFA 保留。
+- [x] 安全模块添加当前/新/确认密码和提交状态；成功退出并提示重新登录，中英文文案和无长度限制保持一致。
+- [x] 运行前端 lint/typecheck/test/build、Go tests/race/vet 和 webui tagged tests/build；临时数据浏览器验收，不修改真实管理员密码。
+- [x] 更新 API 文档、README 和认证规范，记录验证结果；主任务未完成容量验收，保持活动。
+
+Verification: [安全模块修改密码验收](./verification-password-change.md)。部署记录由开发者 journal 保存。
+
 ### Public homepage correction (2026-10-13)
 
 - [x] 将公开页设为 `/`，仅 `/admin` 路径进入管理员认证；保留 `/public` 兼容入口。

@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useState } from 'react'
+import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 
 import { APIError, apiMutation, apiRequest, errorMessage } from '../../api/client'
 import { decodeAuthResponse, decodeSessionResponse, decodeSetupStatus, type SessionResponse } from '../../api/contracts'
@@ -10,23 +10,27 @@ interface AuthGateProps {
     session: SessionResponse,
     refreshSession: () => Promise<void>,
     logout: () => Promise<void>,
-    onUnauthorized: () => void,
+    onUnauthorized: (notice?: 'passwordChanged') => void,
   ) => React.ReactNode
 }
 
 type AuthState =
   | { status: 'checking' }
   | { status: 'setup' }
-  | { status: 'login'; mfaRequired: boolean; error: string }
+  | { status: 'login'; mfaRequired: boolean; error: string; notice?: 'passwordChanged' }
   | { status: 'authenticated'; session: SessionResponse }
 
 export function AuthGate({ children }: AuthGateProps) {
   const { t } = useI18n()
   const [state, setState] = useState<AuthState>({ status: 'checking' })
+  const translation = useRef(t)
+  useEffect(() => { translation.current = t }, [t])
 
   const refreshSession = useCallback(async () => {
     const session = await apiRequest('/api/v1/admin/session', decodeSessionResponse)
-    setState({ status: 'authenticated', session })
+    setState((current) => current.status === 'authenticated' && current.session.session.id === session.session.id
+      ? { status: 'authenticated', session }
+      : current)
   }, [])
 
   useEffect(() => {
@@ -44,23 +48,23 @@ export function AuthGate({ children }: AuthGateProps) {
           if (!controller.signal.aborted) setState({
             status: 'login',
             mfaRequired: false,
-            error: error instanceof APIError && error.status === 401 ? '' : errorMessage(error, t),
+            error: error instanceof APIError && error.status === 401 ? '' : errorMessage(error, translation.current),
           })
         }
       })
       .catch((error: unknown) => {
-        if (!controller.signal.aborted) setState({ status: 'login', mfaRequired: false, error: errorMessage(error, t) })
+        if (!controller.signal.aborted) setState({ status: 'login', mfaRequired: false, error: errorMessage(error, translation.current) })
       })
     return () => controller.abort()
-  }, [t])
+  }, [])
 
   const logout = useCallback(async () => {
     await apiMutation('/api/v1/admin/logout')
     setState({ status: 'login', mfaRequired: false, error: '' })
   }, [])
 
-  const onUnauthorized = useCallback(() => {
-    setState({ status: 'login', mfaRequired: false, error: '' })
+  const onUnauthorized = useCallback((notice?: 'passwordChanged') => {
+    setState((current) => ({ status: 'login', mfaRequired: false, error: '', notice: notice ?? (current.status === 'login' ? current.notice : undefined) }))
   }, [])
 
   if (state.status === 'checking') return <main className="auth-shell"><PreferenceControls /><p role="status">{t('checkingSession')}</p></main>
@@ -138,6 +142,7 @@ function LoginForm({ state, onState }: {
       <PreferenceControls />
       <form className="auth-card" onSubmit={submit}>
         <p className="eyebrow">Control</p><h1>{t('administratorLogin')}</h1>
+        {state.notice && <p className="notice success" role="status">{t(state.notice)}</p>}
         {state.error && <p className="notice error" role="alert">{state.error}</p>}
         <label>{t('username')}<input name="username" autoComplete="username" required /></label>
         <label>{t('password')}<input name="password" type="password" autoComplete="current-password" /></label>

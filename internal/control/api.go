@@ -142,6 +142,7 @@ func NewHandler(config APIConfig) (http.Handler, error) {
 	mux.HandleFunc("POST /api/v1/admin/login", api.login)
 	mux.HandleFunc("GET /api/v1/admin/session", api.auth(false, api.session))
 	mux.HandleFunc("POST /api/v1/admin/logout", api.auth(true, api.logout))
+	mux.HandleFunc("POST /api/v1/admin/password", api.auth(true, api.changePassword))
 	mux.HandleFunc("GET /api/v1/admin/sessions", api.auth(false, api.sessions))
 	mux.HandleFunc("DELETE /api/v1/admin/sessions/{id}", api.auth(true, api.revokeSession))
 	mux.HandleFunc("POST /api/v1/admin/mfa/totp/setup", api.auth(true, api.setupTOTP))
@@ -373,7 +374,7 @@ func (api *adminAPI) issueSession(response http.ResponseWriter, request *http.Re
 		ID: id, AdminID: admin.ID, TokenDigest: security.DigestToken(token),
 		CSRFDigest: security.DigestCSRF(csrf), CreatedAt: now, ExpiresAt: now.Add(api.config.SessionTTL),
 	}
-	if err := api.config.Store.CreateSession(request.Context(), session, admin.TOTPConfirmed); err != nil {
+	if err := api.config.Store.CreateSession(request.Context(), session, admin.TOTPConfirmed, admin.PasswordHash); err != nil {
 		if errors.Is(err, controlstore.ErrAdminStateChanged) {
 			writeError(response, http.StatusConflict, "auth_state_changed", "Authentication settings changed. Try again.")
 			return
@@ -553,7 +554,11 @@ func (api *adminAPI) disableTOTP(response http.ResponseWriter, request *http.Req
 }
 
 func (api *adminAPI) allow(response http.ResponseWriter, request *http.Request, limiter *security.Limiter) bool {
-	allowed, retry := limiter.Allow(clientIP(request.RemoteAddr))
+	return api.allowKey(response, limiter, clientIP(request.RemoteAddr))
+}
+
+func (api *adminAPI) allowKey(response http.ResponseWriter, limiter *security.Limiter, key string) bool {
+	allowed, retry := limiter.Allow(key)
 	if allowed {
 		return true
 	}

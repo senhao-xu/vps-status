@@ -13,6 +13,7 @@ import { formatBytes, formatPercent, formatTime } from '../../format'
 import { useI18n } from '../../i18n'
 import { useNodeLiveStream } from '../live/useNodeLiveStream'
 import { AppearancePanel } from './AppearancePanel'
+import { ChangePasswordPanel } from './ChangePasswordPanel'
 import { NodesPanel } from './NodesPanel'
 import { createNodeRefreshBuffer } from './nodeRefresh'
 
@@ -37,7 +38,7 @@ interface AdminDashboardProps {
   session: SessionResponse
   refreshSession: () => Promise<void>
   logout: () => Promise<void>
-  onUnauthorized: () => void
+  onUnauthorized: (notice?: 'passwordChanged') => void
 }
 
 export function AdminDashboard({ session, refreshSession, logout, onUnauthorized }: AdminDashboardProps) {
@@ -139,7 +140,7 @@ export function AdminDashboard({ session, refreshSession, logout, onUnauthorized
             {section === 'alerts' && <AlertsPanel data={data} mutate={mutate} />}
             {section === 'storage' && <StoragePanel storage={data.storage} mutate={mutate} />}
             {section === 'public' && <PublicConfigPanel data={data} mutate={mutate} />}
-            {section === 'security' && <SecurityPanel session={session} refreshSession={refreshSession} mutate={mutate} />}
+            {section === 'security' && <><ChangePasswordPanel onUnauthorized={onUnauthorized} /><SecurityPanel session={session} refreshSession={refreshSession} mutate={mutate} /></>}
             {section === 'appearance' && <AppearancePanel onUnauthorized={onUnauthorized} />}
           </>
         )}

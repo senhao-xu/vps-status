@@ -117,6 +117,8 @@ SQLite 创建时启用 WAL、`synchronous=NORMAL`、busy timeout 与 `auto_vacuu
 
 ## 7. HTTP, browser updates, and public boundary
 
+- 修改密码：`POST /api/v1/admin/password` 需要 session + CSRF，JSON 包含 `current_password`、`new_password`（两个字段必须存在，可为空字符串），成功返回 `204` 并清除 cookie。当前密码错误返回 `400 current_password_invalid`，沿用登录限速器但使用独立 `password:<adminID>` key，超限返回 `429 rate_limited`。存储通过条件更新匹配已验证的旧摘要、当前有效 session 与 MFA 状态，在同一事务中更新 Argon2id 摘要及撤销全部会话；认证状态过期返回 `409 auth_state_changed`。登录发放 session 时同时匹配认证时的密码摘要与 MFA 状态，阻止旧密码并发登录在改密后创建有效会话。无需数据库迁移。
+- 安全模块新增独立密码表单，不复用后台数据刷新 mutation，因为成功必须退出登录。新密码/确认密码一致才发起请求，处理中禁止重复提交；密码只在表单和请求内存中存在，成功/卸载清除，不能写入偏好存储。成功回到登录页，展示可随语言切换的成功提示；会话 `401` 走原认证失效处理。不增加 CLI 重置密码能力。
 - Web 根路径 `/` 与兼容地址 `/public` 渲染独立公开页；只有 `/admin` 与 `/admin/` 子路径挂载 `AuthGate` 和管理界面。公开页右上角始终提供 `/admin` 链接，覆盖加载、错误、关闭和成功状态；登录页与后台公开页链接统一返回 `/`。未知非管理路径不进入认证边界。Go 静态资源 handler 已支持 SPA 路由回退，无需改变 API、公开白名单或数据库默认值。
 - 管理 API 使用 JSON REST，有服务端 session、HttpOnly/Secure/SameSite cookie 和 CSRF 防护。每个管理员最多保留 32 个活跃会话，创建新会话时清理失效行并淘汰最旧的超限活跃会话；会话创建事务先取得写锁并验证认证所依据的 MFA 状态，避免与 TOTP 启用并发时产生绕过。TOTP 确认事务保留当前会话并吊销其他会话。浏览器实时更新使用 SSE，不与 Agent WSS 协议复用。
 - 公开 API 与管理 DTO 使用不同类型/查询，由服务端显式构造白名单字段，禁止直接序列化内部 node model。

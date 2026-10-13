@@ -37,6 +37,16 @@ administrator `EventSource` lifecycle.
   one-time login/setup response and is never persisted in browser storage.
 - Logout unmounts the dashboard and closes private SSE. SSE cleanup also
   clears reconnect timers; retry delay is capped at 30 seconds.
+- Security password changes use their own form mutation, with current/new/
+  confirmation inputs and a synchronous pending guard. Confirmation mismatch
+  sends no request. `400 current_password_invalid` retains the authenticated
+  form; actual session `401` exits through the usual unauthorized boundary.
+  On `204`, clear the form and unmount the dashboard, then show a localized
+  success notice at login. Do not refresh dashboard data after this mutation,
+  because every session was revoked. Passwords never enter browser storage.
+- Session refresh applies only while the current state is authenticated with
+  the same session ID. A late refresh response must never restore the dashboard
+  after logout, session invalidation or a password change.
 - Historical charts always include a named graphic and an accessible text
   table. Timestamps use the browser timezone; traffic periods state UTC.
 - Destructive telemetry operations require the server's exact confirmation;

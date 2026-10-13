@@ -5,6 +5,7 @@ Control currently exposes the following administrator-security routes under
 
 - `GET/POST /setup`
 - `POST /login` and `POST /logout`
+- `POST /password`
 - `GET /session` and `GET /sessions`
 - `DELETE /sessions/{id}`
 - `POST /mfa/totp/setup`, `/mfa/totp/confirm`, and `/mfa/totp/disable`
@@ -18,10 +19,29 @@ current session and revokes all other sessions. TOTP setup and recovery codes
 are one-time secret-bearing responses and every `/api/` response is marked
 `Cache-Control: no-store`.
 
-Session issuance revalidates the administrator MFA state in the storage write
+Session issuance revalidates the administrator password digest and MFA state in the storage write
 transaction. If authentication settings changed while a login was in flight,
 Control returns `409 auth_state_changed` and the client must retry instead of
 creating a session from stale authentication state.
+
+## Administrator password
+
+The Security screen calls `POST /api/v1/admin/password` with a session,
+`X-CSRF-Token`, and `{"current_password":"…","new_password":"…"}`.
+Both fields must be supplied as strings; empty, short and long values follow
+the existing setup rules and body-size cap. Password attempts are rate-limited
+under a separate administrator key using the login limiter.
+
+An incorrect current password returns `400 current_password_invalid` without
+logging out the browser. Missing/invalid fields return `400`, absent session
+returns `401`, invalid CSRF returns `403`, and rate exhaustion returns
+`429 rate_limited` with `Retry-After`. A concurrent authentication-state change
+returns `409 auth_state_changed` without committing a password update.
+
+Success is `204 No Content`: the new Argon2id digest and revocation of all
+administrator sessions commit together, and session/CSRF cookies are cleared.
+The UI returns to login with a success notice. MFA configuration/recovery
+codes remain unchanged; the new password still requires MFA when enabled.
 
 This directory will hold machine-readable or generated contract inputs as the
 remaining alert and public APIs are introduced.

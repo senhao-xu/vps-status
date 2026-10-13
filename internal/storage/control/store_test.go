@@ -618,7 +618,7 @@ func TestSingletonAdminSessionAndMFAReset(t *testing.T) {
 		ID: "session-1", AdminID: admin.ID, TokenDigest: tokenDigest, CSRFDigest: csrfDigest,
 		CreatedAt: now, ExpiresAt: now.Add(time.Hour),
 	}
-	if err := store.CreateSession(ctx, session, false); err != nil {
+	if err := store.CreateSession(ctx, session, false, admin.PasswordHash); err != nil {
 		t.Fatalf("CreateSession() error = %v", err)
 	}
 	gotSession, err := store.SessionByTokenDigest(ctx, tokenDigest, now.Add(time.Minute))
@@ -640,7 +640,7 @@ func TestSingletonAdminSessionAndMFAReset(t *testing.T) {
 	if err := store.CreateSession(ctx, Session{
 		ID: "session-2", AdminID: admin.ID, TokenDigest: otherToken, CSRFDigest: otherCSRF,
 		CreatedAt: now.Add(time.Minute), ExpiresAt: now.Add(time.Hour),
-	}, false); err != nil {
+	}, false, admin.PasswordHash); err != nil {
 		t.Fatalf("CreateSession(other) error = %v", err)
 	}
 	var firstCode, secondCode [32]byte
@@ -693,7 +693,7 @@ func TestSessionRevocationIsScopedToOwner(t *testing.T) {
 	if err := store.CreateSession(ctx, Session{
 		ID: "session-1", AdminID: admin.ID, TokenDigest: token, CSRFDigest: csrf,
 		CreatedAt: now, ExpiresAt: now.Add(time.Hour),
-	}, false); err != nil {
+	}, false, admin.PasswordHash); err != nil {
 		t.Fatalf("CreateSession() error = %v", err)
 	}
 	if err := store.RevokeSession(ctx, admin.ID+1, "session-1", now.Add(time.Minute)); !errors.Is(err, ErrNotFound) {
@@ -725,10 +725,10 @@ func TestCreateSessionPrunesInactiveHistory(t *testing.T) {
 	}
 	expired := makeSession("expired", 1, now, now.Add(time.Minute))
 	revoked := makeSession("revoked", 2, now, now.Add(time.Hour))
-	if err := store.CreateSession(ctx, expired, false); err != nil {
+	if err := store.CreateSession(ctx, expired, false, admin.PasswordHash); err != nil {
 		t.Fatalf("create expired candidate: %v", err)
 	}
-	if err := store.CreateSession(ctx, revoked, false); err != nil {
+	if err := store.CreateSession(ctx, revoked, false, admin.PasswordHash); err != nil {
 		t.Fatalf("create revoked candidate: %v", err)
 	}
 	if err := store.RevokeSession(ctx, admin.ID, revoked.ID, now.Add(30*time.Second)); err != nil {
@@ -736,7 +736,7 @@ func TestCreateSessionPrunesInactiveHistory(t *testing.T) {
 	}
 
 	fresh := makeSession("fresh", 3, now.Add(2*time.Minute), now.Add(time.Hour))
-	if err := store.CreateSession(ctx, fresh, false); err != nil {
+	if err := store.CreateSession(ctx, fresh, false, admin.PasswordHash); err != nil {
 		t.Fatalf("create fresh session: %v", err)
 	}
 	records, err := store.ListSessions(ctx, admin.ID)
@@ -768,7 +768,7 @@ func TestCreateSessionBoundsActiveSessions(t *testing.T) {
 		if err := store.CreateSession(ctx, Session{
 			ID: id, AdminID: admin.ID,
 			TokenDigest: token, CSRFDigest: csrf, CreatedAt: created, ExpiresAt: created.Add(time.Hour),
-		}, false); err != nil {
+		}, false, admin.PasswordHash); err != nil {
 			t.Fatalf("CreateSession(%d) error = %v", index, err)
 		}
 	}
@@ -807,7 +807,7 @@ func TestConfirmTOTPRequiresActiveKeptSessionAndRollsBack(t *testing.T) {
 	if err := store.CreateSession(ctx, Session{
 		ID: "other-session", AdminID: admin.ID, TokenDigest: token, CSRFDigest: csrf,
 		CreatedAt: now, ExpiresAt: now.Add(time.Hour),
-	}, false); err != nil {
+	}, false, admin.PasswordHash); err != nil {
 		t.Fatalf("CreateSession() error = %v", err)
 	}
 	if err := store.ConfirmTOTP(ctx, admin.ID, "missing-current-session", [][32]byte{recovery}, now.Add(time.Minute)); !errors.Is(err, ErrNotFound) {
@@ -841,7 +841,7 @@ func TestCreateSessionRejectsStaleMFAState(t *testing.T) {
 	if err := store.CreateSession(ctx, Session{
 		ID: "keep", AdminID: admin.ID, TokenDigest: keepToken, CSRFDigest: keepCSRF,
 		CreatedAt: now, ExpiresAt: now.Add(time.Hour),
-	}, false); err != nil {
+	}, false, admin.PasswordHash); err != nil {
 		t.Fatalf("CreateSession(keep) error = %v", err)
 	}
 	if err := store.SetPendingTOTP(ctx, admin.ID, []byte("encrypted-secret"), now); err != nil {
@@ -859,13 +859,13 @@ func TestCreateSessionRejectsStaleMFAState(t *testing.T) {
 		ID: "stale", AdminID: admin.ID, TokenDigest: staleToken, CSRFDigest: staleCSRF,
 		CreatedAt: now.Add(2 * time.Minute), ExpiresAt: now.Add(time.Hour),
 	}
-	if err := store.CreateSession(ctx, stale, false); !errors.Is(err, ErrAdminStateChanged) {
+	if err := store.CreateSession(ctx, stale, false, admin.PasswordHash); !errors.Is(err, ErrAdminStateChanged) {
 		t.Fatalf("CreateSession(stale MFA state) error = %v; want ErrAdminStateChanged", err)
 	}
 	if _, err := store.SessionByTokenDigest(ctx, staleToken, now.Add(2*time.Minute)); !errors.Is(err, ErrNotFound) {
 		t.Fatalf("stale-state session lookup error = %v; want ErrNotFound", err)
 	}
-	if err := store.CreateSession(ctx, stale, true); err != nil {
+	if err := store.CreateSession(ctx, stale, true, admin.PasswordHash); err != nil {
 		t.Fatalf("CreateSession(current MFA state) error = %v", err)
 	}
 }

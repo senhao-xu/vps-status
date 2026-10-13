@@ -49,6 +49,50 @@ func (s *Store) AdminByID(ctx context.Context, id int64) (Admin, error) {
         FROM admins WHERE id = ?`, id))
 }
 
+// ChangePassword conditionally updates the verified password and revokes every
+// administrator session atomically. Hashing belongs outside this transaction.
+// The password/MFA snapshot and current active session must still be valid.
+func (s *Store) ChangePassword(ctx context.Context, adminID int64, sessionID, expectedPasswordHash, newPasswordHash string, expectedMFA bool, now time.Time) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin password change: %w", err)
+	}
+	defer tx.Rollback()
+	expectedMFAValue := 0
+	if expectedMFA {
+		expectedMFAValue = 1
+	}
+	// Acquire SQLite's write lock before checking the authenticated snapshot.
+	// The session check and conditional update share the same locked statement.
+	result, err := tx.ExecContext(ctx, `
+		UPDATE admins SET password_hash = ?, updated_at = ?
+		WHERE id = ? AND password_hash = ? AND totp_confirmed = ?
+		AND EXISTS (
+			SELECT 1 FROM sessions
+			WHERE id = ? AND admin_id = admins.id
+			AND revoked_at IS NULL AND expires_at > ?
+		)`, newPasswordHash, unix(now), adminID, expectedPasswordHash, expectedMFAValue, sessionID, unix(now))
+	if err != nil {
+		return fmt.Errorf("update administrator password: %w", err)
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("read password update result: %w", err)
+	}
+	if rows != 1 {
+		return ErrAdminStateChanged
+	}
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE sessions SET revoked_at = ?
+		WHERE admin_id = ? AND revoked_at IS NULL`, unix(now), adminID); err != nil {
+		return fmt.Errorf("revoke sessions after password change: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit password change: %w", err)
+	}
+	return nil
+}
+
 type rowScanner interface {
 	Scan(dest ...any) error
 }

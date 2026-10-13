@@ -15,6 +15,7 @@ These guidelines describe the current Go foundation and the approved Control/Age
 | [Alerts and Notifications](./alert-guidelines.md) | Live alert state, encrypted channels, durable delivery, and retry bounds |
 | [Public Status Boundary](./public-status-guidelines.md) | Publication allowlist, public DTO, and private-field exclusion |
 | [Built-in Appearance](./appearance-guidelines.md) | Emerald/Classic site defaults, public bootstrap and browser override boundary |
+| [Password Changes](./password-change-guidelines.md) | Password verification, atomic session revocation and login races |
 | [Error Handling](./error-handling.md) | CLI, HTTP, background, and degraded-mode failures |
 | [Logging Guidelines](./logging-guidelines.md) | Operational logging and secret redaction |
 | [Quality Guidelines](./quality-guidelines.md) | Formatting, tests, race checks, builds, and scope gates |
@@ -33,6 +34,7 @@ These guidelines describe the current Go foundation and the approved Control/Age
 - Read [Public Status Boundary](./public-status-guidelines.md) before changing public-page configuration, unauthenticated APIs, or public UI data.
 - Read [Built-in Appearance](./appearance-guidelines.md) before changing site theme configuration or its public bootstrap API.
 - Read [Error Handling](./error-handling.md) and [Logging Guidelines](./logging-guidelines.md) before adding an API, background worker, network connection, or credential path.
+- Read [Password Changes](./password-change-guidelines.md) before editing administrator credentials or session issuance.
 - Read [Quality Guidelines](./quality-guidelines.md) before changing build tags, shared constants, or cross-platform code.
 - Search for the existing owner of a concept before adding a second constant or decoder.
 

@@ -35,7 +35,7 @@ func TestAdminResetMFARequiresLocalDatabaseAndRevokesSessions(t *testing.T) {
 	if err := store.CreateSession(ctx, controlstore.Session{
 		ID: "session", AdminID: admin.ID, TokenDigest: token, CSRFDigest: csrf,
 		CreatedAt: now, ExpiresAt: now.Add(time.Hour),
-	}, false); err != nil {
+	}, false, admin.PasswordHash); err != nil {
 		t.Fatalf("create session: %v", err)
 	}
 	var recovery [32]byte

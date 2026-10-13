@@ -25,8 +25,8 @@ var (
 	ErrNotFound = errors.New("not found")
 	// ErrRecoveryCode is returned when a recovery code is invalid or consumed.
 	ErrRecoveryCode = errors.New("invalid recovery code")
-	// ErrAdminStateChanged is returned when session issuance was authenticated
-	// against an administrator MFA state that is no longer current.
+	// ErrAdminStateChanged is returned when an authentication operation uses
+	// administrator or session state that is no longer current.
 	ErrAdminStateChanged = errors.New("administrator authentication state changed")
 	// ErrEnrollmentInvalid is returned for an unknown enrollment token.
 	ErrEnrollmentInvalid = errors.New("invalid enrollment token")

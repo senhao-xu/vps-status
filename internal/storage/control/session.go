@@ -12,9 +12,9 @@ const maxActiveSessions = 32
 
 // CreateSession prunes inactive rows and stores only token and CSRF digests in
 // one transaction, preventing expired/revoked session history from growing the
-// configuration database indefinitely. expectedMFA must match the state used
-// to authenticate this session, preventing issuance across an MFA state change.
-func (s *Store) CreateSession(ctx context.Context, session Session, expectedMFA bool) error {
+// configuration database indefinitely. Both expectedMFA and expectedPasswordHash
+// must match the state used to authenticate this session.
+func (s *Store) CreateSession(ctx context.Context, session Session, expectedMFA bool, expectedPasswordHash string) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin session creation: %w", err)
@@ -25,12 +25,12 @@ func (s *Store) CreateSession(ctx context.Context, session Session, expectedMFA 
 		expectedMFAValue = 1
 	}
 	// The conditional UPDATE acquires SQLite's write lock before checking the
-	// MFA state. A concurrent TOTP confirm/reset therefore either runs entirely
+	// authentication state. A concurrent password change or TOTP confirm/reset runs
 	// before this transaction (and causes a mismatch) or entirely after it (and
 	// revokes the newly inserted session when required).
 	result, err := tx.ExecContext(ctx, `
 		UPDATE admins SET updated_at = updated_at
-		WHERE id = ? AND totp_confirmed = ?`, session.AdminID, expectedMFAValue)
+		WHERE id = ? AND totp_confirmed = ? AND password_hash = ?`, session.AdminID, expectedMFAValue, expectedPasswordHash)
 	if err != nil {
 		return fmt.Errorf("validate administrator state for session creation: %w", err)
 	}

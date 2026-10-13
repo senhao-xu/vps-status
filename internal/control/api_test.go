@@ -419,7 +419,7 @@ func TestSessionIssuanceReportsAuthenticationStateChange(t *testing.T) {
 	if err := store.CreateSession(t.Context(), controlstore.Session{
 		ID: "keep", AdminID: staleAdmin.ID, TokenDigest: keepToken, CSRFDigest: keepCSRF,
 		CreatedAt: now, ExpiresAt: now.Add(time.Hour),
-	}, false); err != nil {
+	}, false, staleAdmin.PasswordHash); err != nil {
 		t.Fatalf("create keep session: %v", err)
 	}
 	if err := store.SetPendingTOTP(t.Context(), staleAdmin.ID, []byte("encrypted-secret"), now); err != nil {
