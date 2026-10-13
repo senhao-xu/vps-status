@@ -67,8 +67,9 @@ sudo caddy validate --config /etc/caddy/Caddyfile
 sudo systemctl reload caddy
 ```
 
-Caddy 会自动申请和续期 HTTPS 证书。打开 `https://monitor.example.com/`，首次访问
-会显示创建唯一管理员的表单；自行设置用户名和密码，没有默认账号密码，服务端不限制
+Caddy 会自动申请和续期 HTTPS 证书。打开 `https://monitor.example.com/` 即进入公开状态页，
+点击右上角“管理后台”进入 `/admin`。首次进入后台会显示创建唯一管理员的表单；
+自行设置用户名和密码，没有默认账号密码，服务端不限制
 管理员密码长度。
 完整的 [Caddy 示例](deploy/reverse-proxy/Caddyfile) 和
 [nginx 示例](deploy/reverse-proxy/nginx.conf) 均已提供。
@@ -203,8 +204,10 @@ The administrator API uses `Secure` cookies. Terminate TLS at a reverse proxy be
 go run ./cmd/control admin reset-mfa --data-dir ./data
 ```
 
-The administrator UI is served at `/`. The unauthenticated `/public` page is
-disabled by default; enable it and explicitly select published nodes in the
+The unauthenticated status page is served at `/`, with `/public` retained as
+a compatible address. Its top-right administration link opens `/admin`, where
+administrator setup and login are handled. Public node publication is disabled
+by default; enable it and explicitly select published nodes in the
 Public page section. Its API is a separate server-side allowlist projection
 that does not expose host identity, credentials, probe targets, or history.
 

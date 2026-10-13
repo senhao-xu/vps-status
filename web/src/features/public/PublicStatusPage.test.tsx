@@ -1,16 +1,25 @@
 import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { PublicStatus } from '../../api/contracts'
 import { I18nProvider } from '../../i18n'
 import { ThemeProvider } from '../../theme'
-import { PublicStatusView } from './PublicStatusPage'
+import { PublicStatusPage, PublicStatusView } from './PublicStatusPage'
 
 function renderView(status: PublicStatus): string {
   return renderToStaticMarkup(<ThemeProvider><I18nProvider><PublicStatusView status={status} /></I18nProvider></ThemeProvider>)
 }
 
 describe('PublicStatusView', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('keeps the management link available while public status loads', () => {
+    const markup = renderToStaticMarkup(<ThemeProvider><I18nProvider><PublicStatusPage /></I18nProvider></ThemeProvider>)
+
+    expect(markup).toContain('Loading public status')
+    expect(markup).toContain('<a href="/admin">Management</a>')
+  })
+
   it('renders allowed health fields with text status and no private sentinels', () => {
     const status: PublicStatus = {
       page: { enabled: true, title: 'Fleet health', description: 'Public availability' },
@@ -24,6 +33,7 @@ describe('PublicStatusView', () => {
     expect(markup).toContain('Edge alias')
     expect(markup).toContain('Offline')
     expect(markup).toContain('Unavailable')
+    expect(markup).toContain('<a href="/admin">Management</a>')
     expect(markup).not.toContain('real-hostname-secret')
     expect(markup).not.toContain('private-kernel')
   })
@@ -34,7 +44,23 @@ describe('PublicStatusView', () => {
       nodes: [],
     })
     expect(markup).toContain('not enabled')
+    expect(markup).toContain('<a href="/admin">Management</a>')
     expect(markup).not.toContain('Published nodes')
+  })
+
+  it('keeps the management link available for an empty public fleet', () => {
+    const markup = renderView({ page: { enabled: true, title: 'Fleet health', description: '' }, nodes: [] })
+
+    expect(markup).toContain('No nodes are published')
+    expect(markup).toContain('<a href="/admin">Management</a>')
+  })
+
+  it('localizes the management link in Chinese', () => {
+    vi.stubGlobal('window', { navigator: { language: 'zh-CN' } })
+    const markup = renderView({ page: { enabled: false, title: 'Fleet health', description: '' }, nodes: [] })
+
+    expect(markup).toContain('<a href="/admin">管理后台</a>')
+    expect(markup).toContain('此公开状态页尚未启用')
   })
 
   it('never presents retained offline sample values as current resource bars or network speed', () => {

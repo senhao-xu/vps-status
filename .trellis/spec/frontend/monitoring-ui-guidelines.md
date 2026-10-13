@@ -22,6 +22,15 @@ administrator `EventSource` lifecycle.
 
 ## 3. Contracts
 
+- `/` is the public homepage; `/public` and `/public/…` remain public aliases.
+  Only `/admin` and `/admin/…` mount `AuthGate`, including first-run setup.
+  Match the path segment: `/administrator` must not mount the admin boundary.
+  Public rendering never checks administrator setup/session or opens private
+  SSE, even if the browser has a valid administrator cookie.
+- Every public state (loading, error, disabled, populated, empty) retains a
+  localized `/admin` link at the top right, with wrapping at 320px. Login and
+  dashboard public-page links return to `/`. Root navigation never silently
+  enables publication or changes the server-side node allowlist.
 - `fetch().json()`, SSE `data`, and errors remain `unknown` until one shared
   decoder validates them. Components do not cast payloads.
 - Session cookies remain HttpOnly; CSRF comes from the same-origin cookie or
@@ -62,6 +71,9 @@ administrator `EventSource` lifecycle.
 | Public payload has hostname/IP/OS/kernel/credential/history key | Decoder rejects the response; nothing is rendered |
 | SSE parse/network failure | Source closes and bounded reconnect starts |
 | Appearance bootstrap fails | Emerald fallback, rest of UI continues |
+| `/` requested without a session | Public status page; top-right admin link remains available |
+| Public page disabled or status request fails | Disabled/error notice with admin link; no automatic login redirect |
+| `/admin` requested without a session | Administrator login or first-run setup |
 | Enrollment revocation/regeneration returns `409 enrollment_consumed` | Refresh current enrollment status; do not create another token |
 | Enrollment revocation/regeneration returns `404 not_found` | Show missing-record guidance; do not create a replacement token |
 | Enrollment status missing or polling repeatedly fails | Observable error; timers stop within the retry bound |
@@ -77,6 +89,10 @@ administrator `EventSource` lifecycle.
 
 ## 6. Tests Required
 
+- Route tests cover `/`, `/public`, `/admin`, `/admin/…`, and misleading prefixes
+  such as `/administrator`. Public states assert an accessible `/admin` link;
+  browser checks verify root makes no admin requests and clicking the link
+  opens login/setup, with no overflow at 320px.
 - Decoders cover valid, malformed, missing, and forbidden-extra fixtures.
 - Public fixtures assert hostname/IP/OS/kernel/credentials/history do not
   render.

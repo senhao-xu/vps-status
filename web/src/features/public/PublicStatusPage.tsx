@@ -13,6 +13,11 @@ type PublicState =
   | { status: 'error'; message: string }
   | { status: 'success'; data: PublicStatus }
 
+function PublicToolbar() {
+  const { t } = useI18n()
+  return <PreferenceControls><a href="/admin">{t('management')}</a></PreferenceControls>
+}
+
 export function PublicStatusPage() {
   const { t } = useI18n()
   const [state, setState] = useState<PublicState>({ status: 'loading' })
@@ -41,8 +46,8 @@ export function PublicStatusPage() {
     }
   }, [t])
 
-  if (state.status === 'loading') return <main className="public-shell"><PreferenceControls /><p role="status">{t('loadingPublicStatus')}</p></main>
-  if (state.status === 'error') return <main className="public-shell"><PreferenceControls /><div className="notice error" role="alert">{state.message}</div></main>
+  if (state.status === 'loading') return <main className="public-shell"><PublicToolbar /><p role="status">{t('loadingPublicStatus')}</p></main>
+  if (state.status === 'error') return <main className="public-shell"><PublicToolbar /><div className="notice error" role="alert">{state.message}</div></main>
   return <PublicStatusView status={state.data} />
 }
 
@@ -54,11 +59,11 @@ export function PublicStatusView({ status }: { status: PublicStatus }) {
   const groups = [...new Set(status.nodes.map((node) => node.group).filter(Boolean))].sort()
   const visible = filterNodes(status.nodes, group, search)
   if (!status.page.enabled) {
-    return <main className="public-shell"><PreferenceControls /><section className="panel"><h1>{status.page.title}</h1><p>{t('publicDisabled')}</p></section></main>
+    return <main className="public-shell"><PublicToolbar /><section className="panel"><h1>{status.page.title}</h1><p>{t('publicDisabled')}</p></section></main>
   }
   return (
     <main className="public-shell">
-      <PreferenceControls />
+      <PublicToolbar />
       <header className="public-header">
         <p className="eyebrow">{t('publicStatus')}</p>
         <h1>{status.page.title}</h1>

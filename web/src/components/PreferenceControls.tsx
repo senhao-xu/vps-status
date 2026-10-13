@@ -1,7 +1,9 @@
+import type { ReactNode } from 'react'
+
 import { useI18n } from '../i18n'
 import { useTheme } from '../theme'
 
-export function PreferenceControls() {
+export function PreferenceControls({ children }: { children?: ReactNode }) {
   const { language, setLanguage, t } = useI18n()
   const { theme, setTheme, visualOverride, setVisualOverride } = useTheme()
   const nextTheme = theme === 'dark' ? 'light' : 'dark'
@@ -14,6 +16,7 @@ export function PreferenceControls() {
         if (value === 'site') setVisualOverride(null)
         else if (value === 'emerald' || value === 'classic') setVisualOverride(value)
       }}><option value="site">{t('followSite')}</option><option value="emerald">Emerald</option><option value="classic">Classic</option></select>
+      {children}
     </div>
   )
 }

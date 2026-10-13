@@ -128,7 +128,7 @@ export function AdminDashboard({ session, refreshSession, logout, onUnauthorized
       <main className="content" id="main-content">
         <header className="content-header">
           <div><p className="eyebrow">Control</p><h1>{sectionLabel(section, t)}</h1></div>
-          <a href="/public" target="_blank" rel="noreferrer">{t('publicPageNewWindow')}</a>
+          <a href="/" target="_blank" rel="noreferrer">{t('publicPageNewWindow')}</a>
         </header>
         {error && <p className="notice error" role="alert">{error}</p>}
         {notice && <p className="notice success" role="status">{notice}</p>}

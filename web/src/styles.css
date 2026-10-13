@@ -183,10 +183,13 @@ table { width: 100%; border-collapse: collapse; }
 th, td { padding: .45rem; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
 .danger-zone { padding: 1rem; border: 1px solid color-mix(in srgb, var(--danger) 35%, transparent); border-radius: .8rem; }
 
-.preference-controls { display: flex; flex-wrap: wrap; gap: .5rem; }
+.preference-controls { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
 .auth-shell > .preference-controls { position: absolute; top: 1rem; right: 1rem; }
 .public-shell > .preference-controls { justify-content: flex-end; max-width: 84rem; margin: 0 auto 1rem; }
-.preference-controls button, .preference-controls select { min-height: 2.2rem; padding: .4rem .65rem; font-size: .82rem; }
+.preference-controls button, .preference-controls select, .preference-controls a { min-height: 2.2rem; padding: .4rem .65rem; font-size: .82rem; }
+.preference-controls a { display: inline-flex; align-items: center; border: 1px solid var(--line); border-radius: .7rem; background: var(--button); text-decoration: none; }
+.preference-controls a:hover { border-color: var(--button-hover-line); background: var(--button-hover); }
+:root[data-visual-theme="emerald"] .preference-controls a { border-radius: .4rem; }
 .preference-controls select { width: auto; max-width: 100%; }
 
 .public-shell { display: block; }

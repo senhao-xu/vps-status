@@ -194,6 +194,15 @@ docker compose -f deploy/docker-compose.yml config
 
 ## Review gates
 
+### Public homepage correction (2026-10-13)
+
+- [x] 将公开页设为 `/`，仅 `/admin` 路径进入管理员认证；保留 `/public` 兼容入口。
+- [x] 公开页各状态保留右上角后台入口，统一后台/登录页返回公开首页的链接，增加中英文文案。
+- [x] 路由和后台入口回归测试；执行前端 lint/typecheck/test/build 以及 tagged Go embed tests/build。
+- [x] 浏览器检查首页无需登录、点击后台入口、公开页关闭/错误状态和 320px 布局；同步 README 与路由规范。
+
+Verification: [公开首页入口修正验收](./verification-public-homepage.md)。源代码已验证，现有部署未更新。
+
 1. 任何协议消息新增前，检查它是否会突破“只读采集 + 受限 TCP”边界。
 2. 任何数据表新增前，确认它属于 control 还是 telemetry，不让样本/流量/探测值进入 control.db。
 3. 任何公开 API 变更都要更新白名单负面测试。

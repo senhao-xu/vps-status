@@ -143,7 +143,7 @@ function LoginForm({ state, onState }: {
         <label>{t('password')}<input name="password" type="password" autoComplete="current-password" /></label>
         {state.mfaRequired && <label>{t('mfaOrRecoveryCode')}<input name="mfa_code" inputMode="numeric" autoComplete="one-time-code" required autoFocus /></label>}
         <button className="primary" disabled={pending}>{pending ? t('signingIn') : t('signIn')}</button>
-        <a href="/public">{t('openPublicStatus')}</a>
+        <a href="/">{t('openPublicStatus')}</a>
       </form>
     </main>
   )

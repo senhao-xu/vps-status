@@ -117,6 +117,7 @@ SQLite 创建时启用 WAL、`synchronous=NORMAL`、busy timeout 与 `auto_vacuu
 
 ## 7. HTTP, browser updates, and public boundary
 
+- Web 根路径 `/` 与兼容地址 `/public` 渲染独立公开页；只有 `/admin` 与 `/admin/` 子路径挂载 `AuthGate` 和管理界面。公开页右上角始终提供 `/admin` 链接，覆盖加载、错误、关闭和成功状态；登录页与后台公开页链接统一返回 `/`。未知非管理路径不进入认证边界。Go 静态资源 handler 已支持 SPA 路由回退，无需改变 API、公开白名单或数据库默认值。
 - 管理 API 使用 JSON REST，有服务端 session、HttpOnly/Secure/SameSite cookie 和 CSRF 防护。每个管理员最多保留 32 个活跃会话，创建新会话时清理失效行并淘汰最旧的超限活跃会话；会话创建事务先取得写锁并验证认证所依据的 MFA 状态，避免与 TOTP 启用并发时产生绕过。TOTP 确认事务保留当前会话并吊销其他会话。浏览器实时更新使用 SSE，不与 Agent WSS 协议复用。
 - 公开 API 与管理 DTO 使用不同类型/查询，由服务端显式构造白名单字段，禁止直接序列化内部 node model。
 - 管理 API 对登录、注册密钥、凭据轮换、任务配置和破坏性遥测操作使用独立限速/确认边界。

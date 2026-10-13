@@ -12,7 +12,7 @@ export function App() {
 
 function AppRoutes() {
   const path = typeof window === 'undefined' ? '/' : window.location.pathname
-  if (path === '/public' || path.startsWith('/public/')) {
+  if (path !== '/admin' && !path.startsWith('/admin/')) {
     return <PublicStatusPage />
   }
   return (
