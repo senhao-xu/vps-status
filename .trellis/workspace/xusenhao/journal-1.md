@@ -212,3 +212,24 @@ Updated deploy-control-1 to local-c9130fb source image after verified pre-update
 ### Status
 
 [OK] **Completed**
+
+
+## Session 8: Remaining administrator pages and local update
+
+**Date**: 2026-10-14
+**Task**: Remaining administrator pages and local update
+**Branch**: `main`
+
+### Summary
+
+Refined notifications, storage, publication, security and appearance against Komari/monitor; independent review, 170 frontend tests, tagged Go tests/build and 80 browser layout combinations passed. Pushed main and deployed local-3480a64 on 18080 with published Agent v0.1.0 pinned. Verified backup/master key/all 21 config tables unchanged and deployed read-only browser checks. Parent remains active for capacity/security follow-up.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3480a64` | (see git log) |
+
+### Status
+
+[OK] **Completed**
