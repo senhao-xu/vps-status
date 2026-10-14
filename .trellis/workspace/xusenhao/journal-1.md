@@ -147,3 +147,26 @@ Implemented shared installation settings, name-only node enrollment, pinned GitH
 ### Next Steps
 
 - Publish a Release containing bootstrap-agent.sh before remote installation; deployment not performed. Main task remains active for the outstanding resource-constrained capacity baseline.
+
+
+## Session 5: Publish v0.1.0 and deploy local Control
+
+**Date**: 2026-10-14
+**Task**: Publish v0.1.0 and deploy local Control
+**Branch**: `main`
+
+### Summary
+
+Published and downloaded v0.1.0 assets; checksum and tag CI passed. Updated local deploy-control-1 at 127.0.0.1:18080 with original data volume; verified online backups, schema v8-to-v9 preservation, health and browser pages. Fixed broken Trivy Action references; actual Security scan fails on Go standard-library advisories and is disclosed in release notes. Capacity baseline remains open; active tasks retained.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `4a05543` | (see git log) |
+| `fc7e7bd` | (see git log) |
+| `ec156c9` | (see git log) |
+
+### Status
+
+[OK] **Completed**
