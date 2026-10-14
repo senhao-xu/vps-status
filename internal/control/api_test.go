@@ -41,7 +41,7 @@ func newTestAdminAPI(t *testing.T, mutate func(*APIConfig)) (http.Handler, time.
 	now := time.Unix(1_700_000_000, 0).UTC()
 	config := APIConfig{
 		Store: store, MasterKey: key, PasswordParams: apiTestPasswordParams,
-		Now: func() time.Time { return now }, Web: http.NotFoundHandler(), WorkerContext: t.Context(),
+		AgentReleaseVersion: "v1.2.3", Now: func() time.Time { return now }, Web: http.NotFoundHandler(), WorkerContext: t.Context(),
 	}
 	if mutate != nil {
 		mutate(&config)

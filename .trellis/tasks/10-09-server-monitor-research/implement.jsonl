@@ -1,4 +1,8 @@
 {"file":".trellis/spec/backend/index.md","reason":"Backend pre-development routing and quality gates."}
+{"file":".trellis/tasks/10-09-server-monitor-research/research/node-installation-comparison.md","reason":"Authorized unified installation increment and source-backed Komari/monitor layout and download behavior."}
+{"file":".trellis/spec/backend/operations-guidelines.md","reason":"Pinned release bootstrap, checksum, non-root service and release asset contract."}
+{"file":".trellis/spec/backend/agent-protocol-guidelines.md","reason":"Enrollment, secret, status and development transport compatibility."}
+{"file":".trellis/spec/frontend/monitoring-ui-guidelines.md","reason":"Administrator enrollment cancellation, accessibility and public/private UI contracts."}
 {"file":".trellis/spec/backend/directory-structure.md","reason":"Control, Agent, protocol, security, and storage package ownership."}
 {"file":".trellis/spec/backend/database-guidelines.md","reason":"Hard control.db/telemetry.db boundary, migrations, SQLite, and degradation rules."}
 {"file":".trellis/spec/backend/error-handling.md","reason":"CLI, API, worker, and degraded-mode error contracts."}

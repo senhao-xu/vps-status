@@ -26,9 +26,14 @@ Internet.
 
 ## Agent systemd installation
 
-The administrator node-enrollment screen is the preferred path. Its first
-command downloads the Control-pinned Release from the unauthenticated fixed
-`/install-agent.sh` endpoint, detects Linux amd64/arm64, verifies the Agent,
+Configure the shared node HTTPS entry and optional Agent release override in
+the administrator **Installation settings** page. When the entry is blank,
+the browser's current HTTPS address is used; a localhost/tunnel entry requires
+an explicit address reachable by the remote nodes. Adding a node then asks
+only for its name.
+
+The generated command downloads `bootstrap-agent.sh` directly from the pinned
+GitHub Release (or the configured HTTPS release mirror), detects Linux amd64/arm64, verifies the Agent,
 installer, and systemd unit against `SHA256SUMS`, then enrolls and starts the
 service. Root is needed only to install files and the service account; runtime
 uses the locked `vps-status-agent` system user. The one-time token is consumed
@@ -38,19 +43,31 @@ run it only on the intended host, and generate a new enrollment if it expires
 or may have been exposed.
 
 For audit-sensitive environments, download and inspect the public bootstrap
-script before passing the two one-time arguments shown by the UI:
+script before passing the arguments shown by the UI. Replace `v0.1.0` with an
+actual published version containing the standalone bootstrap:
 
 ```bash
-curl -fsSLo /tmp/vps-status-install.sh https://monitor.example.com/install-agent.sh
+curl -fsSLo /tmp/vps-status-install.sh https://github.com/senhao-xu/vps-status/releases/download/v0.1.0/bootstrap-agent.sh
 less /tmp/vps-status-install.sh
-sudo sh /tmp/vps-status-install.sh https://monitor.example.com ONE_TIME_ENROLLMENT_TOKEN
+sudo sh /tmp/vps-status-install.sh https://monitor.example.com ONE_TIME_ENROLLMENT_TOKEN \
+  v0.1.0 https://github.com/senhao-xu/vps-status/releases/download
 ```
 
 Control defaults to the version embedded in its binary and the versioned
 GitHub Release directory. Override a mirror or version with
 `--agent-release-base-url` and `--agent-release-version`; the base URL must be
 HTTPS and the version is restricted to a path-safe identifier. A source build
-whose version is `dev` must be pointed at an existing published Agent release.
+whose version is `dev` cannot generate a command until an explicit release is
+configured. A saved Agent version in Installation settings overrides the
+startup default; the release mirror remains a startup setting. Configuration
+validates the version format, not its presence on GitHub. The Release must
+contain `bootstrap-agent.sh`, both Agent architectures, the systemd installer
+and unit, and `SHA256SUMS`. Releases created before this bootstrap asset was
+added need a new release or complete asset set before using the new command.
+
+The public Control `/install-agent.sh` endpoint remains available for existing
+commands. It uses the same bootstrap source and current saved release override
+and accepts the original two arguments, Control URL and one-time token.
 
 The manual fallback is to copy the matching checksum-verified Agent binary and
 the adjacent Release installer/unit to the host, then run:

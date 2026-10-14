@@ -47,7 +47,7 @@ func TestEnrollmentAPIIsOneTimeAndCredentialsRotate(t *testing.T) {
 		EnrollCommand  string `json:"enroll_command"`
 	}](t, created)
 	if enrollment.Token == "" || !strings.Contains(enrollment.InstallCommand, enrollment.Token) ||
-		!strings.Contains(enrollment.InstallCommand, "https://control.example/install-agent.sh") ||
+		!strings.Contains(enrollment.InstallCommand, "https://github.com/senhao-xu/vps-status/releases/download/v1.2.3/bootstrap-agent.sh") ||
 		!strings.Contains(enrollment.EnrollCommand, "vps-status-agent enroll") ||
 		!strings.Contains(enrollment.EnrollCommand, enrollment.Token) ||
 		strings.Contains(enrollment.InstallCommand, "?token=") || strings.Contains(enrollment.EnrollCommand, "?token=") {

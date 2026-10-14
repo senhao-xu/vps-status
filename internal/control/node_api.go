@@ -91,7 +91,28 @@ func (api *adminAPI) createEnrollment(response http.ResponseWriter, request *htt
 		return
 	}
 	input.NodeName = strings.TrimSpace(input.NodeName)
-	controlURL, err := validateControlURL(input.ControlURL)
+	saved, err := api.config.Store.InstallationConfig(request.Context())
+	if err != nil {
+		writeInternal(response)
+		return
+	}
+	release := api.installationDTO(saved)
+	if !release.ReleaseConfigured {
+		writeError(response, http.StatusConflict, "agent_release_required", "Configure a published Agent release version in installation settings.")
+		return
+	}
+	address := saved.ControlURL
+	if address == "" {
+		address = strings.TrimSpace(input.ControlURL)
+	}
+	if address == "" {
+		address, err = controlstore.ValidateRemoteControlURL(request.Header.Get("Origin"))
+		if err != nil {
+			writeError(response, http.StatusBadRequest, "control_url_required", "Configure a remote HTTPS Control address in installation settings.")
+			return
+		}
+	}
+	controlURL, err := validateControlURL(address)
 	if err != nil || input.NodeName == "" || len(input.NodeName) > 128 {
 		writeError(response, http.StatusBadRequest, "invalid_input", "The node name or Control URL is invalid.")
 		return
@@ -126,7 +147,7 @@ func (api *adminAPI) createEnrollment(response http.ResponseWriter, request *htt
 	enrollCommand := fmt.Sprintf("vps-status-agent enroll --control-url %s --token %s", shellQuote(controlURL), shellQuote(plaintext))
 	writeJSON(response, http.StatusCreated, map[string]any{
 		"id": id, "enrollment_token": plaintext, "expires_at": record.ExpiresAt,
-		"install_command": agentInstallCommand(controlURL, plaintext),
+		"install_command": agentInstallCommand(controlURL, plaintext, release.AgentReleaseBaseURL, release.EffectiveAgentReleaseVersion),
 		"enroll_command":  enrollCommand,
 	})
 }

@@ -41,10 +41,10 @@ func TestOpenMigratesAndRestrictsDatabase(t *testing.T) {
 	if err := store.db.QueryRow("SELECT MAX(version) FROM schema_migrations").Scan(&version); err != nil {
 		t.Fatalf("read schema version: %v", err)
 	}
-	if version != 8 {
-		t.Fatalf("schema version = %d; want 8", version)
+	if version != 9 {
+		t.Fatalf("schema version = %d; want 9", version)
 	}
-	for _, table := range []string{"admins", "sessions", "recovery_codes", "nodes", "node_credentials", "enrollment_tokens", "telemetry_cleanup_jobs", "probe_tasks", "probe_assignments", "probe_config_state", "telemetry_probe_cleanup_jobs", "notification_channels", "alert_rules", "alert_rule_channels", "alert_states", "notification_deliveries", "public_page", "public_nodes", "appearance"} {
+	for _, table := range []string{"admins", "sessions", "recovery_codes", "nodes", "node_credentials", "enrollment_tokens", "telemetry_cleanup_jobs", "probe_tasks", "probe_assignments", "probe_config_state", "telemetry_probe_cleanup_jobs", "notification_channels", "alert_rules", "alert_rule_channels", "alert_states", "notification_deliveries", "public_page", "public_nodes", "appearance", "installation"} {
 		var count int
 		if err := store.db.QueryRow("SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?", table).Scan(&count); err != nil {
 			t.Fatalf("find table %s: %v", table, err)
@@ -113,7 +113,7 @@ func TestOpenRejectsNewerSchemaVersion(t *testing.T) {
         version INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
         applied_at INTEGER NOT NULL
-	    ); INSERT INTO schema_migrations(version, name, applied_at) VALUES (9, '009_future.sql', 1)`); err != nil {
+	    ); INSERT INTO schema_migrations(version, name, applied_at) VALUES (10, '010_future.sql', 1)`); err != nil {
 		_ = db.Close()
 		t.Fatalf("seed future database: %v", err)
 	}
@@ -155,7 +155,7 @@ func TestOpenUpgradesV1WithBackup(t *testing.T) {
 	}
 	defer store.Close()
 	var version int
-	if err := store.db.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 8 {
+	if err := store.db.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 9 {
 		t.Fatalf("version=%d err=%v", version, err)
 	}
 	backups, _ := filepath.Glob(path + ".backup-v1-*")
@@ -208,7 +208,7 @@ func TestOpenUpgradesV2WithBackup(t *testing.T) {
 	}
 	defer store.Close()
 	var version int
-	if err := store.db.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 8 {
+	if err := store.db.QueryRow(`SELECT MAX(version) FROM schema_migrations`).Scan(&version); err != nil || version != 9 {
 		t.Fatalf("version=%d err=%v", version, err)
 	}
 	backups, _ := filepath.Glob(path + ".backup-v2-*")

@@ -24,6 +24,9 @@ Agent reports, probe results, rates, cumulative traffic values, and historical b
 - Control schema v8 adds singleton `appearance` with a checked built-in
   `default_theme` enum. Its initial value is Emerald; see
   [Built-in Appearance](./appearance-guidelines.md).
+- Control schema v9 adds singleton `installation` for a shared node HTTPS
+  entry and optional Agent version override. No credentials or telemetry are
+  stored; see [Installation Settings](./installation-guidelines.md).
 
 ## Migrations
 
@@ -64,4 +67,6 @@ Agent reports, probe results, rates, cumulative traffic values, and historical b
   not contain `public_page` or `public_nodes`.
 - Schema v8 requires a v7-to-v8 backup test proving the mode-0600 backup lacks
   `appearance`; older binaries still reject newer schemas.
+- Schema v9 requires a v8-to-v9 backup test proving the mode-0600 backup lacks
+  `installation` and prior appearance/admin configuration remains intact.
 - Enrollment-token tests must cover concurrent admission at the 256-row boundary and prove that consumption and expiry release capacity.

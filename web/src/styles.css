@@ -296,3 +296,29 @@ th, td { padding: .45rem; border-bottom: 1px solid var(--line); text-align: left
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; animation: none !important; }
 }
+
+/* Shared, compact sections for node onboarding and installation settings. */
+.fleet-controls .fleet-summary > div { border: 0; background: var(--surface); padding: .8rem 1rem; }
+.fleet-controls .fleet-heading p { margin-bottom: 0; font-size: .83rem; }
+.fleet-controls .node-toolbar { padding-top: 1rem; border-top: 1px solid var(--line); }
+.fleet-visible-count { font-size: .75rem; margin-bottom: 0; }
+.node-grid .empty { grid-column: 1 / -1; padding: 2.5rem 1rem; }
+.node-grid .empty button { margin-top: .75rem; }
+.installation-settings { max-width: 58rem; }
+.settings-section-heading h3 { margin-top: 0; font-size: .95rem; }
+.settings-section-heading p { font-size: .83rem; line-height: 1.6; }
+.settings-section > label { max-width: 36rem; }
+.installation-config-summary { display: grid; gap: .8rem; margin: 0; }
+.installation-config-summary dd { font-weight: 500; font-size: .82rem; overflow-wrap: anywhere; line-height: 1.6; }
+.settings-save-bar, .dialog-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .65rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+.dialog-actions { justify-content: flex-end; }
+.installation-context { padding: 1rem; border: 1px solid var(--line); border-radius: .5rem; background: var(--surface); }
+.installation-context > * + * { margin-top: .85rem; }
+.installation-context p { font-size: .8rem; line-height: 1.6; margin-bottom: 0; }
+.settings-link { font-size: .8rem; padding: .3rem 0; min-height: 2rem; border: 0; background: transparent; color: var(--link); }
+.notice.warning { border-color: color-mix(in srgb, var(--warning) 40%, var(--line)); color: var(--warning-text); }
+@media (max-width: 420px) {
+  .dialog-actions { align-items: stretch; flex-direction: column-reverse; }
+  .settings-save-bar { align-items: stretch; flex-direction: column; }
+  .fleet-controls .fleet-summary > div { padding: .65rem; }
+}

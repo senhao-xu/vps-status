@@ -193,7 +193,19 @@ Add-node dialog
 - 对话框打开且命令已生成时以有界轮询刷新状态；到达 `online`/`expired`、关闭对话框或组件卸载时停止。进入 `online` 后刷新节点集合并聚焦新节点。
 - `DELETE /api/v1/admin/enrollments/{id}` 只撤销尚未消费的 enrollment；“重新生成”先撤销仍 pending 的旧记录，再创建新记录。并发消费时以服务端最终状态为准，不误删已创建节点。
 - 已消费 enrollment 至少保留到原过期时间，支持短期状态查询；创建时继续清理过期记录，活跃 token 上限保持 256。消费记录增长与实际新建节点同阶且受最长 24 小时 TTL 限定。
-- 安装命令继续使用固定 `/install-agent.sh`、TLS 限制、版本固定、SHA-256 校验、非 root systemd 账户、0600 配置和一次性 token；UI 改造不放宽任何安装安全条件。
+- 安装命令改为指定版本 Release 的独立 `bootstrap-agent.sh` 入口；固定 `/install-agent.sh` 作为兼容入口继续提供。TLS 限制、版本固定、SHA-256 校验、非 root systemd 账户、0600 配置和一次性 token 保持。
+
+### 2026-10-14: unified installation and layout
+
+用户在审阅节点接入对比与建议后明确要求“实现吧，还有一些页面的排版也参考下”。本次增量范围是节点接入链路、节点总览、安装对话框及新安装设置页；参考证据见 `research/node-installation-comparison.md`。
+
+- 新增 control.db singleton `installation`（接入地址、可选 Agent 版本）；以既有升级前备份和 schema 版本校验迁移，不持久化遥测或令牌。
+- 管理员 `GET/PUT /api/v1/admin/installation`：GET 返回 `control_url`, `agent_release_version`（保存值），`effective_agent_release_version`（保存覆盖或启动配置），`agent_release_base_url`（启动配置），`release_configured`（有效版本不是 dev/unknown）。PUT 只接受前两个字段，需认证与 CSRF。空值表示自动地址或默认版本。配置的接入地址要求非回环 HTTPS；版本为安全路径段。
+- Enrollment 的 `control_url` 字段保留给旧客户端/显式本机开发；已保存的统一地址优先，空字段时回退经过验证的请求 Origin。新 UI 自动传当前页面地址，只允许有效的非回环 HTTPS 地址生成远程安装命令，不能依赖内部 Host/代理头来推导公网入口。缺少可用发布版本在创建 token 之前返回 `409 agent_release_required`。
+- 新增独立静态 `bootstrap-agent.sh` 并随 Release 发布/校验；脚本接收 Control URL、一次性 token、明确版本和 HTTPS release base，架构检测与逐文件校验保持。Go 从同一脚本模板嵌入生成兼容面板入口，避免两份下载逻辑漂移。
+- 新的安装设置页使用上述 DTO；添加节点对话框加载设置，地址自动带入并以文字显示，配置缺失时提供前往安装设置的操作。秘密仅保留在对话框内存。
+- 节点总览统一工具栏、汇总、筛选和空状态；安装设置采用分区卡片与独立保存栏；排版复用现有 CSS token，320px 下单列，正常键盘/状态/错误行为保留。
+- 不执行真实节点安装，不修改真实站点配置、凭据或密码；GitHub Release 的新脚本需随包含本次改动的版本发布后才可实际下载。旧版本目录不会自动获得新资产。
 
 ## 14. Built-in theme management
 

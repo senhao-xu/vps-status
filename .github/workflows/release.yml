@@ -26,7 +26,9 @@ jobs:
           SOURCE_DATE_EPOCH: "0"
         run: sh scripts/release.sh "${GITHUB_REF_NAME}" "${GITHUB_SHA}" dist
       - name: Verify checksums
-        run: cd dist && sha256sum -c SHA256SUMS
+        run: |
+          for script in dist/bootstrap-agent.sh dist/install-agent.sh dist/uninstall-agent.sh; do sh -n "$script"; done
+          cd dist && sha256sum -c SHA256SUMS
       - uses: actions/upload-artifact@v4
         with:
           name: vps-status-${{ github.ref_name }}

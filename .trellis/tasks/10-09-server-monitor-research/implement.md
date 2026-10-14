@@ -194,6 +194,22 @@ docker compose -f deploy/docker-compose.yml config
 
 ## Review gates
 
+### Unified installation and layout (2026-10-14)
+
+- [x] 新增 singleton 安装配置及迁移/持久化测试，管理员 GET/PUT 契约与认证/CSRF/输入校验。
+- [x] Enrollment 优先统一接入地址，版本缺失时不创建 token；命令直接引用指定 Release 的独立联网脚本。
+- [x] 将共用 bootstrap 脚本纳入发布产物并嵌入 Control，保留旧面板入口，验证下载/校验/架构/失败路径及发布 checksum；未发布远程 Release。
+- [x] 添加安装设置页、中英文 decoder/提示；添加节点只填名称，自动地址并引导修复本地地址/缺失版本。
+- [x] 调整节点总览、安装对话框和安装设置排版，验证亮暗/Emerald/Classic/320px 与键盘。
+- [x] 运行前端 lint/typecheck/test/build、Go tests/race/vet/tagged tests，浏览器验证自动地址、设置持久化、GitHub 命令、安装状态。
+- [x] 同步 README/API/deploy/spec，记录验证结果；不宣称新 Release 已发布或真实远端安装已完成。
+
+Authorization: 用户已经在本次对比建议之后明确要求实施。主任务仍为 in_progress，本次作为增量里程碑，不为已授权方案重复请求审批。
+
+Ownership: backend implementer owns Go/storage/migration/bootstrap/release/CI; frontend implementer owns web UI/contracts/styles/tests; primary owns task artifacts/docs/spec and integrated verification. Retain concurrent edits.
+
+Verification: [统一节点接入与页面排版验收](./verification-installation-layout.md)。代码实现与临时站点验收完成；用户已批准提交推送，结果记录于 developer journal。GitHub Release 和真实部署未执行。主任务容量基线仍未完成，保持活动。
+
 ### Security password change (2026-10-13)
 
 - [x] 添加管理员条件改密 + 全会话撤销事务，发放 session 校验密码摘要与 MFA 快照，更新调用方及并发/回滚测试。

@@ -74,6 +74,7 @@ for binary in "$output"/vps-status-*; do
   fi
 done
 
+install -m 0755 internal/control/bootstrap-agent.sh "$output/bootstrap-agent.sh"
 install -m 0755 deploy/systemd/install-agent.sh "$output/install-agent.sh"
 install -m 0755 deploy/systemd/uninstall-agent.sh "$output/uninstall-agent.sh"
 install -m 0644 deploy/systemd/vps-status-agent.service "$output/vps-status-agent.service"
@@ -84,6 +85,7 @@ install -m 0644 deploy/systemd/vps-status-agent.service "$output/vps-status-agen
     vps-status-control-linux-amd64 \
     vps-status-agent-linux-amd64 \
     vps-status-agent-linux-arm64 \
+    bootstrap-agent.sh \
     install-agent.sh \
     uninstall-agent.sh \
     vps-status-agent.service > SHA256SUMS

@@ -153,6 +153,8 @@ func NewHandler(config APIConfig) (http.Handler, error) {
 	mux.HandleFunc("DELETE /api/v1/admin/enrollments/{id}", api.auth(true, api.revokeEnrollment))
 	mux.HandleFunc("GET /api/v1/admin/appearance", api.auth(false, api.appearance))
 	mux.HandleFunc("PUT /api/v1/admin/appearance", api.auth(true, api.updateAppearance))
+	mux.HandleFunc("GET /api/v1/admin/installation", api.auth(false, api.installation))
+	mux.HandleFunc("PUT /api/v1/admin/installation", api.auth(true, api.updateInstallation))
 	mux.HandleFunc("GET /api/v1/admin/nodes", api.auth(false, api.nodes))
 	mux.HandleFunc("GET /api/v1/admin/nodes/{id}", api.auth(false, api.node))
 	mux.HandleFunc("PATCH /api/v1/admin/nodes/{id}", api.auth(true, api.updateNode))

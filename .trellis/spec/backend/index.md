@@ -20,6 +20,7 @@ These guidelines describe the current Go foundation and the approved Control/Age
 | [Logging Guidelines](./logging-guidelines.md) | Operational logging and secret redaction |
 | [Quality Guidelines](./quality-guidelines.md) | Formatting, tests, race checks, builds, and scope gates |
 | [Packaging and Operations](./operations-guidelines.md) | Releases, deployment, backups, security scanning, and capacity evidence |
+| [Installation Settings](./installation-guidelines.md) | Shared node address/version, enrollment priority and direct Release bootstrap |
 
 ## Pre-Development Checklist
 
@@ -27,6 +28,7 @@ These guidelines describe the current Go foundation and the approved Control/Age
 - Read [Directory Structure](./directory-structure.md) for every Go change.
 - Read [Database Guidelines](./database-guidelines.md) before adding a table, migration, query, retention job, or persistent state.
 - Read [Agent Enrollment and Protocol](./agent-protocol-guidelines.md) before changing enrollment, node credentials, Agent config, WSS, or Agent messages.
+- Read [Installation Settings](./installation-guidelines.md) and [Packaging and Operations](./operations-guidelines.md) before changing add-node defaults or Agent installation commands.
 - Read [Linux Collection and Live Monitoring](./live-monitoring-guidelines.md) before changing host metrics, reports, online state, node APIs, or SSE.
 - Read [Telemetry Storage and Retention](./telemetry-storage-guidelines.md) before changing history aggregation, telemetry queries, traffic accounting, retention, vacuum, or disk guards.
 - Read [Bounded TCP Probes](./tcp-probe-guidelines.md) before changing probe tasks, assignments, protocol payloads, scheduling, result admission, or probe history.

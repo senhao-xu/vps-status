@@ -36,13 +36,15 @@ workflow. These pieces form one installation boundary and must change together.
 ### 2. Signatures
 
 - `GET /install-agent.sh` returns the public bootstrap script without an
-  enrollment secret.
+  enrollment secret, retaining the original two-argument interface. It reads
+  current saved defaults, has `Cache-Control: no-store`, and derives from the
+  same embedded source as the standalone Release bootstrap.
 - `POST /api/v1/admin/enrollments` returns distinct `install_command` and
   `enroll_command` fields plus the one-time token and expiry.
 - Control accepts `--agent-release-base-url HTTPS_URL` and
   `--agent-release-version VERSION`.
 - A tag release contains `vps-status-agent-linux-amd64`,
-  `vps-status-agent-linux-arm64`, `install-agent.sh`,
+  `vps-status-agent-linux-arm64`, `bootstrap-agent.sh`, `install-agent.sh`,
   `uninstall-agent.sh`, `vps-status-agent.service`, the Control binary, and one
   `SHA256SUMS` covering all assets.
 
@@ -51,6 +53,14 @@ workflow. These pieces form one installation boundary and must change together.
 - The bootstrap supports Linux amd64/arm64 with systemd, detects architecture,
   downloads one explicit version over HTTPS, verifies every consumed asset
   against `SHA256SUMS`, and only then executes the installer.
+- Enrollment downloads the versioned Release `bootstrap-agent.sh` directly;
+  the command passes Control URL, token, explicit version and HTTPS release
+  base as four shell-quoted arguments. `internal/control/bootstrap-agent.sh`
+  is the sole bootstrap source, embedded for the compatibility endpoint and
+  copied unchanged into the release directory by `scripts/release.sh`.
+- Shared saved address/version behavior is owned by
+  [Installation Settings](./installation-guidelines.md). The UI's configured
+  release flag describes local eligibility, never a GitHub existence check.
 - The Release base URL has no credentials, query, or fragment. The version is
   a path-safe 1–64 byte identifier. Neither value may be interpolated into the
   shell script before normalization and shell quoting.
@@ -85,6 +95,9 @@ workflow. These pieces form one installation boundary and must change together.
   rendered public bootstrap.
 - Contract-test that enrollment returns both command fields and never places
   the token in a URL query.
+- Execute the bootstrap with mocked downloader/installer commands to verify
+  successful architecture selection and that checksum failure never executes
+  the systemd installer or prints the token.
 - Run `sh -n` on release/install/uninstall scripts, build a release-shaped
   directory, and run `sha256sum -c SHA256SUMS` across every asset.
 - Keep the tag workflow's published file set equal to the checksum file's

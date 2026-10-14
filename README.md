@@ -74,10 +74,12 @@ Caddy 会自动申请和续期 HTTPS 证书。打开 `https://monitor.example.co
 完整的 [Caddy 示例](deploy/reverse-proxy/Caddyfile) 和
 [nginx 示例](deploy/reverse-proxy/nginx.conf) 均已提供。
 
-登录后，在 **节点 → 添加节点 / Nodes → Add node** 对话框中填写节点名称和 Control 的 HTTPS
-地址，复制生成的一键安装命令到目标服务器执行；对话框会显示等待安装、已注册和在线状态。
+登录后，在 **安装设置 / Installation settings** 中统一配置目标服务器能访问的面板 HTTPS
+地址。留空时使用当前页面的 HTTPS 地址；通过 localhost 或 SSH 隧道访问后台时必须配置
+远程节点可达的地址。添加节点时只需填写名称，复制生成的一键安装命令到目标服务器执行；
+对话框会显示等待安装、已注册和在线状态。
 安装命令只在创建时展示，过期后可重新生成，未使用的令牌可以撤销。安装程序支持 Linux amd64/arm64，
-会从与 Control 明确绑定的 Release 版本下载 Agent、安装脚本和 systemd unit，逐项校验
+命令直接从指定的 GitHub Release 下载独立 `bootstrap-agent.sh`，再下载 Agent、安装脚本和 systemd unit，逐项校验
 `SHA256SUMS`，然后创建非 root 服务账户、完成一次性注册并启动服务。页面同时保留仅注册
 已有 Agent 的手动命令。详细要求和排错方式见
 [Agent systemd 安装说明](deploy/README.md#agent-systemd-installation)。
@@ -169,7 +171,7 @@ make build VERSION=v0.1.0 COMMIT="$(git rev-parse --short HEAD)"
 ```
 
 The release script builds the embedded-Web Control, both Linux Agent
-architectures, packages the systemd install/uninstall assets, and writes one
+architectures, packages the standalone bootstrap and systemd install/uninstall assets, and writes one
 `SHA256SUMS` covering every release asset:
 
 ```bash
@@ -195,8 +197,14 @@ vps-status-control --agent-release-version v0.1.0 \
   --agent-release-base-url https://downloads.example.com/vps-status
 ```
 
-Source builds identify as `dev`; set `--agent-release-version` to an existing
-published version before using their generated one-command installer.
+Source builds identify as `dev`. Set an explicit published Agent version in
+**Installation settings** or with `--agent-release-version` before generating
+an installation command. The saved version takes precedence over the startup
+default. An eligible Release must include `bootstrap-agent.sh` and the matching
+Agent, systemd installer/unit, and `SHA256SUMS`; older Releases without the new
+bootstrap asset cannot serve the new command. The UI does not check whether a
+configured tag has been published. No Release is created merely by building
+or configuring Control.
 
 The administrator API uses `Secure` cookies. Terminate TLS at a reverse proxy before using it from a browser.
 

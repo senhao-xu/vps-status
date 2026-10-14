@@ -14,8 +14,8 @@ export type NodeTelemetryState =
   | { status: 'error'; message: string }
   | { status: 'success'; history: HostPoint[]; traffic: TrafficTotal[] }
 
-export function NodesPanel({ nodes, mutate, refreshNodes, onUnauthorized }: {
-  nodes: Node[]; mutate: Mutate; refreshNodes: () => void; onUnauthorized: () => void
+export function NodesPanel({ nodes, mutate, refreshNodes, onUnauthorized, onOpenSettings }: {
+  nodes: Node[]; mutate: Mutate; refreshNodes: () => void; onUnauthorized: () => void; onOpenSettings: () => void
 }) {
   const { t } = useI18n()
   const [selectedID, setSelectedID] = useState('')
@@ -51,16 +51,19 @@ export function NodesPanel({ nodes, mutate, refreshNodes, onUnauthorized }: {
   }, [selected?.id, onUnauthorized, t])
 
   return <div className="stack">
-    <div className="section-heading fleet-heading"><div><h2>{t('fleetOverview')}</h2><p className="muted">{t('onlineCount', { online: nodes.filter((node) => node.online).length, total: nodes.length })}</p></div><button className="primary" onClick={() => setInstalling(true)}>+ {t('addNode')}</button></div>
+    <section className="panel fleet-controls">
+    <div className="section-heading fleet-heading"><div><h2>{t('fleetOverview')}</h2><p className="muted">{t('fleetDescription')}</p></div><button className="primary" onClick={() => setInstalling(true)}>+ {t('addNode')}</button></div>
     <FleetSummary total={nodes.length} online={nodes.filter((node) => node.online).length} groups={groups.length} />
     <NodeFilters groups={groups} group={group} onGroup={setGroup} search={search} onSearch={setSearch} view={view} onView={setView} />
     {nodes.some((node) => node.hidden) && <label className="check"><input type="checkbox" checked={showHidden} onChange={(event) => setShowHidden(event.target.checked)} />{t('showHiddenNodes')}</label>}
+    <p className="fleet-visible-count muted">{t('fleetVisibleCount', { visible: visible.length, total: nodes.length })}</p>
+    </section>
     <div className={`node-grid ${view === 'list' ? 'node-list' : ''}`}>
-      {visible.length === 0 ? <div className="empty panel"><p>{nodes.length === 0 ? t('noNodes') : t('noMatchingNodes')}</p>{nodes.length > 0 && <button onClick={() => { setGroup(''); setSearch('') }}>{t('clearFilters')}</button>}</div> : visible.map((node) => <button key={node.id} className={`node-card ${selected?.id === node.id ? 'selected' : ''}`} aria-label={t('viewNode') + ': ' + node.name} aria-pressed={selected?.id === node.id} onClick={() => { setSelectedID(node.id); setOneTime('') }}>
+      {visible.length === 0 ? <div className="empty panel"><p>{nodes.length === 0 ? t('noNodes') : t('noMatchingNodes')}</p>{nodes.length === 0 ? <><p className="muted">{t('firstNodeDescription')}</p><button className="primary" onClick={() => setInstalling(true)}>+ {t('addNode')}</button></> : <button onClick={() => { setGroup(''); setSearch(''); setShowHidden(true) }}>{t('clearFilters')}</button>}</div> : visible.map((node) => <button key={node.id} className={`node-card ${selected?.id === node.id ? 'selected' : ''}`} aria-label={t('viewNode') + ': ' + node.name} aria-pressed={selected?.id === node.id} onClick={() => { setSelectedID(node.id); setOneTime('') }}>
         <NodeCardBody name={node.name} group={node.group} online={node.online} stale={node.connected && !node.online} values={node.report} />
       </button>)}
     </div>
     {selected && <><button className="back-button" onClick={() => { setSelectedID(''); setOneTime('') }}>← {t('backToNodes')}</button><NodeDetail key={selected.id} node={selected} telemetry={telemetry} mutate={mutate} setOneTime={setOneTime} onUnauthorized={onUnauthorized} />{oneTime && <pre className="secret-once" role="status">{oneTime}</pre>}</>}
-    {installing && <EnrollmentDialog onClose={() => setInstalling(false)} onOnline={onOnline} onViewNode={setSelectedID} onUnauthorized={onUnauthorized} />}
+    {installing && <EnrollmentDialog onClose={() => setInstalling(false)} onOnline={onOnline} onViewNode={setSelectedID} onUnauthorized={onUnauthorized} onOpenSettings={onOpenSettings} />}
   </div>
 }

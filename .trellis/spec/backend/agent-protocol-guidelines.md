@@ -44,7 +44,9 @@ cross the storage boundary.
 ### Enrollment HTTP
 
 - `POST /api/v1/admin/enrollments` accepts `node_name` (1–128 bytes),
-  `control_url`, and optional `expires_in_seconds` (300–86400, default 3600).
+  optional `control_url`, and optional `expires_in_seconds` (300–86400, default 3600).
+  Shared address/version precedence and pre-token release validation follow
+  [Installation Settings](./installation-guidelines.md).
 - At most `control.MaxActiveEnrollmentTokens` (256) unconsumed, unexpired
   tokens exist globally. Creation prunes expired rows, counts active tokens, and inserts
   in one write transaction.

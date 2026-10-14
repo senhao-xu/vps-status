@@ -58,6 +58,17 @@ administrator `EventSource` lifecycle.
   node ID from the status contract, stop on online/expired/401/404 or dialog
   unmount, and cancel pending requests/timers. Retries are bounded and never
   overlap requests. Revoke/regenerate stops old polling before mutation.
+- The add-node form asks only for a display name. Load and strictly decode
+  administrator installation settings; prefer saved entry to the current
+  browser origin. Automatic localhost/loopback/non-HTTPS addresses or missing
+  eligible release show settings guidance and disable command creation.
+  Settings require an authenticated GET/PUT and persist defaults server-side,
+  not in browser storage. Blank URL/version restore browser/startup defaults.
+- Installation config must expose saved values separately from the effective
+  version/source; a locally eligible release is not verified publication.
+  Keep the settings save guard synchronous, abort outstanding reads before
+  saving, and cancel requests on unmount. Settings-navigation from a blocked
+  dialog closes it before mounting the settings section.
 - A consumed-token conflict refreshes its status rather than creating a
   duplicate node. Online completion refreshes the administrator collection
   through its existing load owner and selects the returned node ID.

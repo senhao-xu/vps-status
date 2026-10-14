@@ -5,6 +5,21 @@ export type Language = 'en' | 'zh'
 const languagePreferenceKey = 'vps-status.language'
 
 const en = {
+  installationSettings: 'Installation settings', installationSettingsDescription: 'Set the connection address and Agent version once for all new nodes.',
+  nodeConnection: 'Node connection', nodeConnectionUrl: 'Node connection address',
+  connectionUrlHelp: 'Use an HTTPS address your servers can reach. Leave empty to use the current page address automatically.',
+  agentDownload: 'Agent download', agentReleaseVersion: 'Agent release version',
+  releaseVersionHelp: 'Enter a published version, such as v1.0.0. Leave empty to use the Control default. The release must contain bootstrap-agent.sh.',
+  effectiveAgentVersion: 'Effective version', agentDownloadSource: 'Download source', automaticAddress: 'Automatic · current page address',
+  installationSaved: 'Installation settings saved.', saveInstallation: 'Save installation settings', savingInstallation: 'Saving…',
+  loadingInstallation: 'Loading installation settings…', retryInstallation: 'Retry loading', cancelChanges: 'Cancel changes',
+  connectionAddressRequired: 'Set a server-accessible HTTPS address in installation settings. The current page address cannot be used by remote nodes.',
+  agentReleaseRequired: 'Choose a published Agent version in installation settings before creating a command. Development builds do not provide a downloadable release.',
+  openInstallationSettings: 'Open installation settings', invalidConnectionUrl: 'Enter a non-loopback HTTPS address without credentials, query parameters or a fragment.',
+  invalidAgentVersion: 'Enter a release version using letters, digits, dots, underscores or hyphens.',
+  installConnectionSummary: 'Your server will connect to this address and download the Agent from the configured release source.',
+  fleetDescription: 'Monitor your servers and add new nodes in one step.', firstNodeDescription: 'Add your first Linux server to start monitoring resources and traffic.',
+  fleetVisibleCount: 'Showing {{visible}} of {{total}} nodes',
   savingTheme: 'Saving theme…', pollRetrying: 'Status is temporarily unavailable. Retrying automatically.', showHiddenNodes: 'Show hidden nodes',
   browserTheme: 'Browser theme', followSite: 'Follow site', themeManagement: 'Theme management',
   themeManagementDescription: 'Choose the default appearance for your site. Visitors follow this choice unless they select a browser theme.',
@@ -247,6 +262,15 @@ export type TranslationKey = keyof typeof en
 type Dictionary = Record<TranslationKey, string>
 
 const zh: Dictionary = {
+  installationSettings: '安装设置', installationSettingsDescription: '统一配置节点接入地址和 Agent 版本，添加节点时自动使用。',
+  nodeConnection: '节点接入', nodeConnectionUrl: '节点接入地址', connectionUrlHelp: '填写服务器可访问的 HTTPS 地址。留空时自动使用当前页面地址。',
+  agentDownload: 'Agent 下载', agentReleaseVersion: 'Agent 发布版本', releaseVersionHelp: '填写已发布版本，如 v1.0.0。留空使用 Control 默认版本；该版本需包含 bootstrap-agent.sh。',
+  effectiveAgentVersion: '生效版本', agentDownloadSource: '下载来源', automaticAddress: '自动 · 当前页面地址',
+  installationSaved: '安装设置已保存。', saveInstallation: '保存安装设置', savingInstallation: '正在保存…', loadingInstallation: '正在加载安装设置…', retryInstallation: '重新加载', cancelChanges: '取消修改',
+  connectionAddressRequired: '请在安装设置中填写服务器可访问的 HTTPS 地址，当前页面地址无法用于远程节点接入。',
+  agentReleaseRequired: '请先在安装设置中选择已发布的 Agent 版本。开发构建没有可下载的发布版本。',
+  openInstallationSettings: '前往安装设置', invalidConnectionUrl: '请填写非回环 HTTPS 地址，不能包含账号密码、查询参数或片段。', invalidAgentVersion: '发布版本只能包含字母、数字、点、下划线或连字符。',
+  installConnectionSummary: '服务器将连接此地址，并从配置的发布来源下载 Agent。', fleetDescription: '查看服务器状态，一步添加新节点。', firstNodeDescription: '添加第一台 Linux 服务器，开始监控资源与流量。', fleetVisibleCount: '显示 {{visible}} / {{total}} 个节点',
   changePassword: '修改密码',
   currentPassword: '当前密码',
   newPassword: '新密码',

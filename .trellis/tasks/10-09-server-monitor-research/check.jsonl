@@ -1,4 +1,8 @@
 {"file":".trellis/spec/backend/index.md","reason":"Check backend work against project-specific routing and gates."}
+{"file":".trellis/tasks/10-09-server-monitor-research/research/node-installation-comparison.md","reason":"Verify new installation and layout against researched behavior and approved scope."}
+{"file":".trellis/spec/backend/operations-guidelines.md","reason":"Verify standalone and compatibility bootstrap share a source, publish pinned assets and verify checksums."}
+{"file":".trellis/spec/backend/agent-protocol-guidelines.md","reason":"Verify enrollment version/address validation precedes token creation without secret leakage."}
+{"file":".trellis/spec/frontend/monitoring-ui-guidelines.md","reason":"Verify name-only installation, settings guidance, cancel/race behavior and accessibility."}
 {"file":".trellis/spec/backend/directory-structure.md","reason":"Check package ownership and dependency direction."}
 {"file":".trellis/spec/backend/database-guidelines.md","reason":"Check storage separation, migrations, SQLite, and graceful degradation."}
 {"file":".trellis/spec/backend/error-handling.md","reason":"Check stable errors, cancellation, and degraded-mode behavior."}

@@ -80,13 +80,17 @@ existing API `Cache-Control: no-store` policy.
 ## Agent enrollment and credentials
 
 An authenticated administrator creates a short-lived enrollment through
-`POST /api/v1/admin/enrollments` with `node_name`, `control_url`, and optional
+`POST /api/v1/admin/enrollments` with `node_name`, optional `control_url`, and optional
 `expires_in_seconds` (300–86400). The response shows the 256-bit enrollment
 token exactly once and contains two distinct commands: `install_command` is a
-single-line bootstrap through the public fixed `GET /install-agent.sh`
-endpoint, while `enroll_command` is the compatibility/manual
+single-line download of the configured version's `bootstrap-agent.sh` from
+GitHub Releases or a configured HTTPS mirror, while `enroll_command` is the compatibility/manual
 `vps-status-agent enroll` command for an Agent already installed on the node.
-Control stores only the domain-separated token digest.
+Control stores only the domain-separated token digest. The shared saved node
+entry takes precedence over `control_url`; when neither is provided, a valid
+non-loopback HTTPS request Origin is used. Explicit loopback `control_url` is
+retained for local development clients. Missing release configuration returns
+`409 agent_release_required` before an enrollment token is created.
 At most 256 unconsumed, unexpired enrollment tokens may exist globally.
 Creation first prunes expired rows in the same storage transaction;
 the next token is rejected with `409 enrollment_token_limit` when the bound is
@@ -110,8 +114,9 @@ refresh that enrollment's status instead of creating a replacement node.
 Unknown, revoked, and expiry-pruned IDs return `404 not_found` for both routes;
 a pruned status does not imply that a successfully registered node expired.
 
-The bootstrap script contains no enrollment secret. It accepts the Control URL
-and one-time token as arguments, supports only Linux amd64/arm64 with systemd,
+The bootstrap script contains no enrollment secret. The standalone asset accepts
+the Control URL, one-time token, explicit release version and HTTPS release base
+as arguments, supports only Linux amd64/arm64 with systemd,
 and downloads a configured explicit Release version over HTTPS. It fetches the
 matching Agent, `SHA256SUMS`, the systemd installer, and unit, verifies each
 download before execution, installs the Agent under the locked
@@ -119,6 +124,35 @@ download before execution, installs the Agent under the locked
 URL and version are restricted at Control startup to prevent shell/path
 injection. OpenRC, Docker Agent installation, automatic updates, and signature
 verification are not part of this endpoint.
+
+### Shared installation settings
+
+Administrator `GET/PUT /api/v1/admin/installation` uses the existing session
+boundary; PUT also requires CSRF. PUT accepts only `control_url` and
+`agent_release_version`, both strings. Empty values mean automatic browser
+entry and the Control startup version respectively. A saved entry must be
+HTTPS and non-loopback; a saved version must be a safe path segment and cannot
+be a development placeholder. Invalid settings return `400 invalid_input`.
+
+Both responses contain only:
+
+```json
+{
+  "control_url": "https://monitor.example.com",
+  "agent_release_version": "v0.1.0",
+  "effective_agent_release_version": "v0.1.0",
+  "agent_release_base_url": "https://github.com/senhao-xu/vps-status/releases/download",
+  "release_configured": true
+}
+```
+
+Settings persist in the control database. The saved Agent version overrides
+`--agent-release-version`; `--agent-release-base-url` remains a startup setting.
+`release_configured` describes eligible local configuration, not a GitHub
+existence check. The configured Release must publish the bootstrap and all
+matching checksum-covered assets. The public `GET /install-agent.sh` remains
+compatible with two-argument commands and uses the canonical bootstrap source;
+it has no token and reflects the current saved release override.
 
 The Agent sends that token in `Authorization: Bearer <token>` to
 `POST /agent/v1/enroll`. It is never accepted in a URL or query parameter. A

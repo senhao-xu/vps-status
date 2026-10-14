@@ -680,3 +680,24 @@ export function decodeCredential(value: unknown): { credential: string } {
   string(root.node_id, 'node_id')
   return { credential: string(root.credential, 'credential') }
 }
+
+
+export interface InstallationConfig {
+  controlUrl: string
+  agentReleaseVersion: string
+  effectiveAgentReleaseVersion: string
+  agentReleaseBaseUrl: string
+  releaseConfigured: boolean
+}
+
+export function decodeInstallationConfig(value: unknown): InstallationConfig {
+  const root = object(value, 'installation configuration')
+  allowedKeys(root, ['control_url', 'agent_release_version', 'effective_agent_release_version', 'agent_release_base_url', 'release_configured'], 'installation configuration')
+  return {
+    controlUrl: string(root.control_url, 'control_url'),
+    agentReleaseVersion: string(root.agent_release_version, 'agent_release_version'),
+    effectiveAgentReleaseVersion: string(root.effective_agent_release_version, 'effective_agent_release_version'),
+    agentReleaseBaseUrl: string(root.agent_release_base_url, 'agent_release_base_url'),
+    releaseConfigured: boolean(root.release_configured, 'release_configured'),
+  }
+}

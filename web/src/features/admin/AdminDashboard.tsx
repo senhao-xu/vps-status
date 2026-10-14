@@ -14,10 +14,11 @@ import { useI18n } from '../../i18n'
 import { useNodeLiveStream } from '../live/useNodeLiveStream'
 import { AppearancePanel } from './AppearancePanel'
 import { ChangePasswordPanel } from './ChangePasswordPanel'
+import { InstallationPanel } from './InstallationPanel'
 import { NodesPanel } from './NodesPanel'
 import { createNodeRefreshBuffer } from './nodeRefresh'
 
-type Section = 'nodes' | 'probes' | 'alerts' | 'storage' | 'public' | 'security' | 'appearance'
+type Section = 'nodes' | 'probes' | 'alerts' | 'storage' | 'public' | 'security' | 'appearance' | 'installation'
 
 interface DashboardData {
   nodes: Node[]
@@ -118,7 +119,7 @@ export function AdminDashboard({ session, refreshSession, logout, onUnauthorized
       <aside className="sidebar">
         <a className="brand" href="/">VPS <span>Status</span></a>
         <nav aria-label={t('adminSections')}>
-          {(['nodes', 'probes', 'alerts', 'storage', 'public', 'appearance', 'security'] as const).map((item) => (
+          {(['nodes', 'probes', 'alerts', 'storage', 'public', 'installation', 'appearance', 'security'] as const).map((item) => (
             <button key={item} className={section === item ? 'active' : ''} aria-current={section === item ? 'page' : undefined} onClick={() => setSection(item)}>
               {sectionLabel(item, t)}
             </button>
@@ -133,9 +134,9 @@ export function AdminDashboard({ session, refreshSession, logout, onUnauthorized
         </header>
         {error && <p className="notice error" role="alert">{error}</p>}
         {notice && <p className="notice success" role="status">{notice}</p>}
-        {!data ? <p role="status">{t('loadingAdmin')}</p> : (
+        {section === 'installation' ? <InstallationPanel onUnauthorized={onUnauthorized} /> : !data ? <p role="status">{t('loadingAdmin')}</p> : (
           <>
-            {section === 'nodes' && <NodesPanel nodes={data.nodes} mutate={mutate} refreshNodes={refreshNodes} onUnauthorized={onUnauthorized} />}
+            {section === 'nodes' && <NodesPanel nodes={data.nodes} mutate={mutate} refreshNodes={refreshNodes} onUnauthorized={onUnauthorized} onOpenSettings={() => setSection('installation')} />}
             {section === 'probes' && <ProbesPanel data={data} mutate={mutate} onUnauthorized={onUnauthorized} />}
             {section === 'alerts' && <AlertsPanel data={data} mutate={mutate} />}
             {section === 'storage' && <StoragePanel storage={data.storage} mutate={mutate} />}
@@ -160,6 +161,7 @@ function sectionLabel(section: Section, t: Translate): string {
     case 'public': return t('publicPage')
     case 'security': return t('security')
     case 'appearance': return t('themeManagement')
+    case 'installation': return t('installationSettings')
   }
 }
 

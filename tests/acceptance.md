@@ -9,6 +9,7 @@ failure-injection assertions.
 | Single administrator, password KDF, login/logout/session/rate limit | `go test ./internal/security ./internal/storage/control ./internal/control -count=1` (`TestAdminAuthenticationMFAAndSessionLifecycle`, limiter/session tests) |
 | TOTP, recovery codes, local reset | same command plus `go test ./cmd/control -count=1` |
 | One-time enrollment, digest-only credentials, revoke/rotate | `go test ./internal/agent ./internal/storage/control ./internal/control -count=1` |
+| Shared installation defaults, dev guard, versioned GitHub bootstrap and checksum failure paths | `go test ./internal/storage/control ./internal/control -count=1`; `sh -n internal/control/bootstrap-agent.sh`; release `sha256sum -c SHA256SUMS` |
 | Non-root Linux amd64/arm64 Agent, WSS, prohibited capability absence | CGO-free cross-build commands below, protocol allowlist tests, and `deploy/systemd/vps-status-agent.service` review |
 | Three-second live state; no raw SQLite rows | `go test ./internal/control ./internal/storage/telemetry -count=1` (`TestHostHistoryKeepsRawReportsInMemoryUntilMinuteCompletes` and schema boundary tests) |
 | 1m/10m/1h retention and ~2,856 non-overlapping buckets | `go test ./internal/storage/telemetry -count=1` retention/rollup tests |
