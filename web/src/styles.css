@@ -388,3 +388,63 @@ th, td { padding: .45rem; border-bottom: 1px solid var(--line); text-align: left
   .probe-controls .section-heading > .button-row button { flex: 1; }
 }
 .probe-toolbar .view-toggle button { font-size: .82rem; line-height: 1.4; }
+
+/* Settings pages use the same compact, readable rhythm as node and TCP management. */
+.settings-stack { display: grid; gap: 1rem; min-width: 0; }
+.settings-stack > div:empty { display: none; }
+.settings-intro .section-heading { margin-bottom: 1rem; flex-wrap: wrap; }
+.settings-intro .section-heading p { margin: .45rem 0 0; max-width: 42rem; font-size: .85rem; line-height: 1.65; }
+.settings-toolbar { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 1rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+.settings-toolbar > label { width: min(100%, 20rem); }
+.settings-list { padding: 0; overflow: hidden; }
+.settings-row { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 1rem; padding: 1rem 1.25rem; }
+.settings-row + .settings-row { border-top: 1px solid var(--line); }
+.settings-row .item-main { min-width: 0; overflow-wrap: anywhere; }
+.settings-row .item-main small { line-height: 1.6; }
+.settings-row button { font-size: .8rem; min-height: 2.1rem; padding: .4rem .65rem; }
+.settings-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; border: 0; padding: 0; margin: 0; min-width: 0; }
+.settings-fields > label, .settings-fields > fieldset { min-width: 0; }
+.settings-dialog > * + * { margin-top: 1rem; }
+.settings-dialog > .muted { font-size: .85rem; line-height: 1.65; }
+.settings-summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; margin: 0; }
+.settings-summary > div { min-width: 0; padding: 1rem; background: var(--surface); border-radius: .55rem; }
+.settings-summary dd { font-size: 1.15rem; overflow-wrap: anywhere; }
+.maintenance-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.maintenance-grid article, .cleanup-grid article { display: flex; flex-direction: column; align-items: flex-start; gap: .8rem; padding: 1rem; min-width: 0; border: 1px solid var(--line); border-radius: .55rem; }
+.maintenance-grid article p, .cleanup-grid article p { font-size: .82rem; line-height: 1.65; margin: 0; }
+.maintenance-grid article button { margin-top: auto; }
+.settings-danger { border-color: color-mix(in srgb, var(--danger) 35%, var(--line)); }
+.cleanup-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.cleanup-grid label { width: 100%; }
+.cleanup-grid article button { margin-top: auto; }
+.publication-picker { display: grid; gap: 1rem; max-height: 26rem; overflow-y: auto; }
+.publication-group { padding: .85rem; border: 1px solid var(--line); border-radius: .5rem; }
+.publication-group .section-heading { margin-bottom: .5rem; }
+.publication-group .section-heading button { padding: .35rem .55rem; min-height: 2rem; font-size: .75rem; }
+.publication-group .check { padding: .5rem 0; overflow-wrap: anywhere; }
+.publication-group .check input { flex-shrink: 0; }
+.selection-count { font-size: .8rem; color: var(--muted); }
+.publication-preview-surface { padding: 1.2rem; background: var(--surface); border: 1px solid var(--line); border-radius: .65rem; overflow-wrap: anywhere; }
+.publication-preview-nodes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
+.publication-preview-nodes > div { min-width: 0; display: grid; gap: .5rem; padding: .85rem; background: var(--panel); border: 1px solid var(--line); border-radius: .5rem; }
+.publication-preview-nodes span { font-size: .8rem; }
+.settings-footnote { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--line); font-size: .8rem; line-height: 1.7; }
+.recovery-code-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; padding: 0; list-style: none; }
+.settings-save-bar .muted { font-size: .8rem; line-height: 1.6; }
+@media (max-width: 1000px) {
+  .settings-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .settings-row .button-row { grid-column: 1 / -1; }
+  .maintenance-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .settings-fields, .settings-summary, .cleanup-grid, .publication-preview-nodes { grid-template-columns: minmax(0, 1fr); }
+  .settings-toolbar { align-items: stretch; }
+  .settings-toolbar > label { width: 100%; }
+  .settings-toolbar .view-toggle { display: flex; width: 100%; }
+  .settings-toolbar .view-toggle button { flex: 1; font-size: .78rem; white-space: normal; }
+  .settings-row { padding: .9rem; gap: .75rem; }
+  .publication-group .section-heading { flex-wrap: wrap; }
+  .recovery-code-list { grid-template-columns: 1fr; }
+}
+.settings-fields > .full { grid-column: 1 / -1; }
+.settings-toolbar .view-toggle button { font-size: .82rem; line-height: 1.5; }

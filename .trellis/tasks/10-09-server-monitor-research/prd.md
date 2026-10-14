@@ -122,3 +122,7 @@
 - Komari 证明了配置库与指标库物理分离的可行性；Beszel 的激进降采样和 Nezha 的低磁盘降级用于完善容量边界。
 - 不同步实现 WebSocket + HTTP 双传输；MVP 只做 WSS，等真实部署数据证明需要时再增加降级通道。
 - `komari-theme-emerald` 作为设计参考而不是运行时主题依赖；发布产物不读取 `/root/komari-theme-emerald`，也不增加第三方主题上传或执行能力。
+
+### 2026-10-14: other-page optimization increment
+
+User explicitly requests “其他页面也参考下，做一版更新优化”. Optimize remaining pages against Komari/monitor: alert channel/rule management with conditional forms and readable scopes; storage overview/maintenance/destructive grouping; public-page identity, searchable/grouped allowlist and safe preview; cohesive appearance/security/settings layout; minor shared shell/auth/public presentation polish where useful. Existing node/TCP workflows remain compatible. All new copy is zh/en, theme-token driven and usable at 320px. Existing APIs, public/private boundary, password session revocation, exact destructive strings and memory-only secrets remain. Verify real interactions on an isolated instance, then commit/push and update local Control under prior authorization. No new runtime dependencies, backend features, plugin/theme uploads or security/toolchain expansion.

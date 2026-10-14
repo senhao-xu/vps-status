@@ -215,3 +215,14 @@ without accounting for the database timestamp precision.
 
 Correct: use `loadProbeHistory` across all required tiers; `latestProbeResult`
 applies assignment and configuration-update-second filtering centrally.
+
+## Scenario: administrator settings panels
+
+Settings panels use existing authenticated APIs and the parent snapshot refresh owner. `useAdminAction(onUnauthorized)` owns one cancellable write per panel with a synchronous request guard, observable pending/error/success, abort on unmount and the usual 401 auth exit. A failed write keeps its form/dialog draft; do not close a dialog on completion of the legacy `mutate` helper, which catches failure internally.
+
+- Alert creation dialogs use native modal focus/cancel behavior. Conditional provider fields require distinct keyed subtrees: switching Webhook/Telegram clears old fields rather than reusing an uncontrolled password value as a plain-text Chat ID. Named scope controls submit IDs for nodes and names for groups. Offline rules send zero threshold/hysteresis. Channel secrets only live in an open dialog.
+- Public settings draft fields derive pristine values from refreshed config; dirty overrides survive filtering, language changes and snapshot reloads. `acknowledgePublicDraft` keeps successful server-normalized PUT values until a matching snapshot acknowledges all fields (allowlist IDs compared as sets), then clears overrides permanently. Filtering affects visible choices, never implicitly deselects hidden choices. The administrator draft preview renders explicit title/description/display name/group only and never feeds an admin Node into a public component.
+- Storage keeps independent `clear_history` and `reset_all_telemetry` inputs, checks exact strings again in the handler, disables all operations during pending writes and clears only the successful operation's confirmation. Maintenance and destructive actions are separate sections.
+- MFA setup/confirm/disable retain secrets and recovery codes only in component memory. After a successful confirm/disable, a committed boolean override reflects the write while session refresh is pending/failed. Keep one-time recovery codes on refresh failure, show a retry that only refreshes the session, and block further MFA mutations until refresh succeeds. Dismissing codes must never re-offer setup based on a stale session. Password change continues its independent session-revocation contract.
+
+Validation: unit checks for selection retention, saved draft acknowledgement/old snapshots, safe preview; isolated browser provider switching in both directions, failed writes/retries, duplicate submit/cancel/focus, pristine/dirty refresh, exact cleanup confirmations, real MFA write with failed session refresh, password logout, zh/en and both themes/modes at320px.

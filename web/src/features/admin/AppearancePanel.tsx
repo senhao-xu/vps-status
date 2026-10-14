@@ -58,6 +58,6 @@ export function AppearancePanel({ onUnauthorized }: { onUnauthorized: () => void
       <button type="button" onClick={() => setVisualOverride(id)}>{t('previewTheme', { name: id === 'emerald' ? 'Emerald' : 'Classic' })}</button>
     </article>)}</div>
     {visualOverride && <p className="muted">{t('themeOverrideNotice', { name: visualOverride === 'emerald' ? 'Emerald' : 'Classic' })} <button type="button" onClick={() => setVisualOverride(null)}>{t('followSite')}</button></p>}
-    <button className="primary" disabled={state !== 'ready'} onClick={() => void save()}>{state === 'saving' ? t('savingTheme') : t('saveSiteTheme')}</button>
+    <div className="settings-save-bar"><button className="primary" disabled={state !== 'ready'} onClick={() => void save()}>{state === 'saving' ? t('savingTheme') : t('saveSiteTheme')}</button><span className="muted">{t('appearanceSaveHint')}</span></div>
   </section>
 }

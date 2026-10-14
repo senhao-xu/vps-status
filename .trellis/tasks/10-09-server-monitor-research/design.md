@@ -242,3 +242,7 @@ Add-node dialog
 - Classic 保留既有视觉色板并适配新的节点卡片和安装对话框；切换主题不丢失节点选择、筛选或安装中的状态。
 
 回退方案：站点设置可切回 Classic。数据库仍执行单调版本校验，旧程序会拒绝新 schema；如需回退旧 Control 二进制，必须恢复升级前的配置库备份，并评估升级后的配置变更。两个主题的样式随 Web 产物内嵌发布，不依赖本地参考目录。
+
+### 2026-10-14: remaining pages design boundary
+
+Implement existing business panels at their feature ownership under web/src/features/admin, extracting the four inline panels only as needed for distinct interaction responsibility. AdminDashboard retains snapshot/SSE/navigation ownership; feature mutations use the established API client with synchronous pending guards, local errors and existing unauthorized callback, then refresh through the parent. Never assume the legacy mutate helper propagates failure (it catches errors). Preserve drafts on failed requests, clear secrets only on success/unmount, use controlled selection so filtering never drops hidden allowlisted nodes. Storage cleanup has two independent exact confirmations and pending guard. Security setup/confirm/disable report inline errors and 401 through auth; password change still revokes all sessions. Use native semantic controls and existing dialog patterns, tokens, strict translations. Expected files: dashboard, four new feature panels and local presentation helpers if justified, AppearancePanel/ChangePasswordPanel, styles/i18n, minor auth/public layout and meaningful behavior tests. No API/database changes. Reference evidence: research/remaining-pages-comparison.md. Rollback by previous source image; back up live data using backup CLI before redeploy.

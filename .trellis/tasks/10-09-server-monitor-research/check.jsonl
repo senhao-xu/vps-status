@@ -17,3 +17,4 @@
 {"file":".trellis/spec/frontend/quality-guidelines.md","reason":"Check frozen dependencies and frontend/tagged-Go verification."}
 {"file":".trellis/tasks/10-09-server-monitor-research/research/storage-retention.md","reason":"Verify telemetry never grows control.db and retention/reclaim matches researched safeguards."}
 {"file":".trellis/tasks/10-09-server-monitor-research/research/tcp-probe-limits.md","reason":"Verify Control and Agent independently enforce the agreed TCP limits."}
+{"file":".trellis/tasks/10-09-server-monitor-research/research/remaining-pages-comparison.md","reason":"Authorized remaining-page optimization scope and reference evidence."}

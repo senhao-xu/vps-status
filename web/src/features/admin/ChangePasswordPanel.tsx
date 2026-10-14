@@ -79,10 +79,10 @@ export function ChangePasswordPanel({ onUnauthorized }: {
     <p className="muted" id={`${id}-description`}>{t('changePasswordDescription')}</p>
     {error && <p className="notice error" id={`${id}-error`} role="alert">{errorText}</p>}
     <form ref={formRef} className="form-grid" onSubmit={(event) => void submit(event)} aria-busy={pending}>
-      <label>{t('currentPassword')}<input name="current_password" type="password" autoComplete="current-password" disabled={pending} aria-describedby={description} aria-invalid={error?.kind === 'current' || undefined} /></label>
+      <label className="full">{t('currentPassword')}<input name="current_password" type="password" autoComplete="current-password" disabled={pending} aria-describedby={description} aria-invalid={error?.kind === 'current' || undefined} /></label>
       <label>{t('newPassword')}<input name="new_password" type="password" autoComplete="new-password" disabled={pending} aria-describedby={description} aria-invalid={error?.kind === 'mismatch' || undefined} /></label>
       <label>{t('confirmNewPassword')}<input name="confirm_password" type="password" autoComplete="new-password" disabled={pending} aria-describedby={description} aria-invalid={error?.kind === 'mismatch' || undefined} /></label>
-      <button className="primary" disabled={pending}>{pending ? t('changingPassword') : t('changePassword')}</button>
+      <div className="full settings-save-bar"><button className="primary" disabled={pending}>{pending ? t('changingPassword') : t('changePassword')}</button></div>
     </form>
   </section>
 }
