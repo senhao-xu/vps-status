@@ -111,3 +111,39 @@ Implemented, pushed and deployed administrator password change in Security, with
 ### Next Steps
 
 - Administrator can now use Security -> Change password. Main task remains active for outstanding 100 Agent/400 TCP baseline.
+
+
+## Session 4: Unified node installation and admin layouts
+
+**Date**: 2026-10-14
+**Task**: Unified node installation and admin layouts
+**Branch**: `main`
+
+### Summary
+
+Implemented shared installation settings, name-only node enrollment, pinned GitHub Release bootstrap and node/settings layouts; full tests and temporary browser acceptance passed. User authorized commit and push; no Release publication or real deployment.
+
+### Main Changes
+
+- Schema v9 installation defaults; authenticated settings API; token admission guarded by remote address and explicit release configuration.
+- Canonical standalone bootstrap published by release workflow; checksum verification and compatibility endpoint preserved.
+- Node overview, installation dialog and settings layout with localized guidance, focus and 320px themes.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `603c377` | (see git log) |
+
+### Testing
+
+- [OK] Frontend lint/typecheck, 143 tests, production build; full Go tests/race/vet/tagged embed; migration preservation and mocked bootstrap failures.
+- [OK] Actual temporary-browser settings save/restart, duplicate submit guard, GitHub command, token exchange, focus and mobile layouts; release artifact checksums and 5-Agent/20-task smoke passed.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Publish a Release containing bootstrap-agent.sh before remote installation; deployment not performed. Main task remains active for the outstanding resource-constrained capacity baseline.
