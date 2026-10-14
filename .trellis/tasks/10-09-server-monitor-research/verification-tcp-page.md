@@ -60,3 +60,44 @@ No page-level JavaScript errors.
 Retained parent work: Security/runtime-toolchain remediation and externally
 constrained100-Agent/400-task capacity baseline remain open. This UI change
 does not publish replacement v0.1.0 Release assets or update the live service.
+
+## Follow-up: local deployment updated
+
+After the user explicitly requested "更新", deployed source commit
+`c9130fba37587a24afb06be4fb71ca7f96c30e30` to `deploy-control-1` using image
+`vps-status-control:local-c9130fb`. Binary metadata is `version=dev` with this
+full commit; this source deployment does not replace the published Release.
+
+- Original `deploy_control-data` volume and `127.0.0.1:18080` port retained.
+- Ignored `deploy/.env` pins the local image/commit/port. Ignored
+  `deploy/.env.local-compose.yml` sets build VERSION=dev and runtime
+  `--agent-release-version v0.1.0`, so installation keeps using real published
+  Agent assets rather than requesting an unpublished source-build version.
+- Use both Compose files for this deployment:
+
+  ```sh
+  docker compose --env-file deploy/.env -p deploy \
+    -f deploy/docker-compose.yml -f deploy/.env.local-compose.yml ps
+  ```
+
+- Online pre-update backup verified, including paired master key/telemetry:
+  `data/backups/control-pre-tcp-c9130fb-20261014.tar.gz`, mode0600.
+- Original environment backup:
+  `data/backups/deploy-pre-tcp-c9130fb.env`, mode0600.
+- Old image retained: `vps-status-control:pre-tcp-v0.1.0-4a05543`.
+- Verified post-update snapshot:
+  `data/backups/control-post-tcp-c9130fb-20261014.tar.gz`, mode0600.
+- Snapshot comparison confirms schema9 unchanged, master key identical, and
+  all administrator/node/credential/task/assignment/appearance/public-page/
+  installation records identical.
+- Docker healthy; healthz/readyz both `ok`; administrator setup remains true.
+- Actual served JS/CSS match final verified artifacts byte for byte:
+  `index-CfIi3mof.js` and `index-EL5OLx-e.css`.
+- Served bootstrap retains GitHub source and v0.1.0 default; shell syntax passes.
+- Real deployed public/admin-login pages load without JavaScript errors, at
+  desktop/320px. Screenshots: `/tmp/vps-status-tcp-deployed-{public,admin}-{1280,320}.png`.
+- Only Control recreated using `--no-deps`; no real task/credential mutations
+  or administrator login changes were used for deployment verification.
+- Rollback restores the saved `.env` and uses the original Compose file with
+  the retained v0.1.0 image. Schema is unchanged, so image-only rollback is
+  compatible; use the pre-update verified backup if data restoration is needed.
