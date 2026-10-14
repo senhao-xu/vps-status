@@ -262,7 +262,7 @@ Verification: [公开首页入口修正验收](./verification-public-homepage.md
 - [x] Verify alerts creation/provider/scope switching, errors and duplicate submission; allowlist search/group selection/preview and hidden selection preservation; storage confirmations/pending; MFA errors/401 and password semantics.
 - [x] Run frontend lint/typecheck/tests/build and tagged Go tests/build; independent Trellis full-increment review.
 - [x] Isolated browser zh/en + Emerald/Classic light/dark + 320px and keyboard/real CRUD verification. Do not mutate real credentials, notification/public settings or telemetry.
-- [ ] Sync evidence/spec, commit/push, create/verify CLI backup, deploy only deploy-control-1 with dev metadata and Agent v0.1.0 pinned, verify health/assets/data.
-- [ ] Record session, keep parent task active for outstanding capacity/security work.
+- [x] Sync evidence/spec, commit/push, create/verify CLI backup, deploy only deploy-control-1 with dev metadata and Agent v0.1.0 pinned, verify health/assets/data.
+- [x] Record session, keep parent task active for outstanding capacity/security work.
 
 Implementation ownership: remaining_pages_implement owns frontend code/styles/translations/tests; primary owns task/spec/evidence and integration/browser/deployment. They are not alone in the workspace and must retain others' edits.
