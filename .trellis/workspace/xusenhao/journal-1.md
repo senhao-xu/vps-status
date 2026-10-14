@@ -191,3 +191,24 @@ Implemented task/node views, search, summaries and native create/edit/delete dia
 ### Status
 
 [OK] **Completed**
+
+
+## Session 7: Deploy updated TCP page locally
+
+**Date**: 2026-10-14
+**Task**: Deploy updated TCP page locally
+**Branch**: `main`
+
+### Summary
+
+Updated deploy-control-1 to local-c9130fb source image after verified pre-update backup. Retained deploy_control-data volume and 127.0.0.1:18080. Local ignored Compose override builds dev metadata and pins Agent release v0.1.0. Docker/healthz/readyz pass, served JS/CSS match verified TCP artifacts, deployed public/admin browser desktop320px checks pass. Snapshot comparison confirms schema9 and master key/admin/node/task/appearance/settings retained. Saved rollback image and original environment; parent security/capacity work remains open.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c9130fb` | (see git log) |
+
+### Status
+
+[OK] **Completed**
