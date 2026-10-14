@@ -170,3 +170,24 @@ Published and downloaded v0.1.0 assets; checksum and tag CI passed. Updated loca
 ### Status
 
 [OK] **Completed**
+
+
+## Session 6: Refine TCP probe page from Komari and monitor
+
+**Date**: 2026-10-14
+**Task**: Refine TCP probe page from Komari and monitor
+**Branch**: `main`
+
+### Summary
+
+Implemented task/node views, search, summaries and native create/edit/delete dialogs with existing APIs. Added explicit task/node/range history, complete retained-tier queries, timestamp-scaled TCP charts and conservative same-second stale-sample filtering. Passed lint/typecheck, 164 frontend tests, build, tagged Go tests/build, independent review and isolated HTTPS Chromium CRUD/error/focus/theme320px checks. Synced frontend contracts/spec and verification evidence. Existing v0.1.0 deployment unchanged; parent remains active for security/capacity work.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c0aa645` | (see git log) |
+
+### Status
+
+[OK] **Completed**
