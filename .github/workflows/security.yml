@@ -30,7 +30,7 @@ jobs:
       - name: Production web dependencies
         run: pnpm --dir web audit --prod
       - name: Filesystem and configuration scan
-        uses: aquasecurity/trivy-action@v0.28.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: fs
           scan-ref: .
@@ -46,7 +46,7 @@ jobs:
       - name: Build production image
         run: docker build -f deploy/Dockerfile -t vps-status-control:scan .
       - name: Scan production image
-        uses: aquasecurity/trivy-action@v0.28.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: vps-status-control:scan
           scanners: vuln,secret
