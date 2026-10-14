@@ -112,6 +112,20 @@ go test ./internal/agent/... ./internal/control/... ./internal/storage/telemetry
 go test -race ./internal/agent/... ./internal/control/...
 ```
 
+### TCP page refinement (2026-10-14)
+
+- [x] Reference task/server views and add/edit dialogs in Komari and monitor;
+  evidence and scoped design: `research/tcp-page-comparison.md`.
+- [x] Extract TCP panel; add compact task/node views, search, summaries and
+  native task editor using existing CRUD APIs and parent reload ownership.
+- [x] Add explicit execution-node/time-range history selection and observable
+  pending, empty and error states; retain existing probe bounds.
+- [x] Verify CRUD/focus/history with isolated browser data and all themes at
+  320px; run frontend checks and tagged Go embed tests/build.
+
+Verification: `verification-tcp-page.md`. No changes to the deployed v0.1.0
+assets or live administrator/node configuration were made by this increment.
+
 ## Milestone 6: alerts and notifications
 
 - [x] 实现 offline/recovery 与 CPU/memory/disk/traffic 规则、持续时间、恢复滞回和状态机。

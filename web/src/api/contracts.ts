@@ -365,6 +365,7 @@ export interface ProbeTask {
   host: string
   port: number
   intervalSeconds: number
+  updatedAt: string
   nodeIds: string[]
   latest: ProbeLatest[]
 }
@@ -390,13 +391,13 @@ export function decodeProbeTask(value: unknown): ProbeTask {
   const root = object(value, 'probe task')
   allowedKeys(root, ['id', 'name', 'host', 'port', 'interval_seconds', 'node_ids', 'created_at', 'updated_at', 'latest'], 'probe task')
   iso(root.created_at, 'probe.created_at')
-  iso(root.updated_at, 'probe.updated_at')
   return {
     id: string(root.id, 'probe.id'),
     name: string(root.name, 'probe.name'),
     host: string(root.host, 'probe.host'),
     port: number(root.port, 'probe.port'),
     intervalSeconds: number(root.interval_seconds, 'probe.interval_seconds'),
+    updatedAt: iso(root.updated_at, 'probe.updated_at'),
     nodeIds: stringArray(root.node_ids, 'probe.node_ids'),
     latest: array(root.latest, 'probe.latest', decodeProbeLatest),
   }

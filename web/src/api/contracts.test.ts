@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { decodeEnrollment, decodeLiveEvent, decodePublicStatus, decodeReport, decodeStorageStats, reduceNodeEvent, type Node } from './contracts'
+import { decodeEnrollment, decodeLiveEvent, decodeProbeTask, decodePublicStatus, decodeReport, decodeStorageStats, reduceNodeEvent, type Node } from './contracts'
 
 const publicNode = {
   name: 'Singapore edge', group: 'SG', online: true, uptime_seconds: 60, cpu_usage_percent: 10,
@@ -135,5 +135,17 @@ describe('reduceNodeEvent', () => {
       receivedAt: '2026-10-11T00:00:00Z', report: null,
     })
     expect(result[0]).toEqual(node)
+  })
+})
+
+
+describe('decodeProbeTask', () => {
+  const payload = { id: 'task', name: 'Gateway', host: 'example.com', port: 443, interval_seconds: 30, node_ids: ['node'], latest: [], created_at: '2026-10-14T08:00:00Z', updated_at: '2026-10-14T08:02:00Z' }
+  it('retains the authoritative configuration timestamp for invalidating old-target results', () => {
+    expect(decodeProbeTask(payload).updatedAt).toBe('2026-10-14T08:02:00Z')
+  })
+  it('rejects missing or invalid configuration timestamps', () => {
+    expect(() => decodeProbeTask({ ...payload, updated_at: undefined })).toThrow()
+    expect(() => decodeProbeTask({ ...payload, updated_at: 'invalid' })).toThrow()
   })
 })

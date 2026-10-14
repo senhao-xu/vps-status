@@ -2,20 +2,20 @@ import { type FormEvent, useCallback, useEffect, useRef, useState } from 'react'
 
 import { APIError, apiMutation, apiRequest, errorMessage } from '../../api/client'
 import {
-  decodeChannels, decodeNodes, decodeProbePoints, decodeProbes,
+  decodeChannels, decodeNodes, decodeProbes,
   decodePublicPageConfig, decodeRecoveryCodes, decodeRules, decodeStorageStats, decodeTOTPSetup,
-  reduceNodeEvent, type AlertRule, type Node, type NotificationChannel, type ProbePoint, type ProbeTask,
+  reduceNodeEvent, type AlertRule, type Node, type NotificationChannel, type ProbeTask,
   type PublicPageConfig, type SessionResponse, type StorageStats, type TrafficTotal,
 } from '../../api/contracts'
-import { MetricChart } from '../../components/MetricChart'
 import { PreferenceControls } from '../../components/PreferenceControls'
-import { formatBytes, formatPercent, formatTime } from '../../format'
+import { formatBytes, formatTime } from '../../format'
 import { useI18n } from '../../i18n'
 import { useNodeLiveStream } from '../live/useNodeLiveStream'
 import { AppearancePanel } from './AppearancePanel'
 import { ChangePasswordPanel } from './ChangePasswordPanel'
 import { InstallationPanel } from './InstallationPanel'
 import { NodesPanel } from './NodesPanel'
+import { ProbesPanel } from './ProbesPanel'
 import { createNodeRefreshBuffer } from './nodeRefresh'
 
 type Section = 'nodes' | 'probes' | 'alerts' | 'storage' | 'public' | 'security' | 'appearance' | 'installation'
@@ -28,12 +28,6 @@ interface DashboardData {
   storage: StorageStats
   publicPage: PublicPageConfig
 }
-
-type ProbeHistoryState =
-  | { status: 'idle' }
-  | { status: 'loading' }
-  | { status: 'error'; message: string }
-  | { status: 'success'; points: ProbePoint[] }
 
 interface AdminDashboardProps {
   session: SessionResponse
@@ -137,7 +131,7 @@ export function AdminDashboard({ session, refreshSession, logout, onUnauthorized
         {section === 'installation' ? <InstallationPanel onUnauthorized={onUnauthorized} /> : !data ? <p role="status">{t('loadingAdmin')}</p> : (
           <>
             {section === 'nodes' && <NodesPanel nodes={data.nodes} mutate={mutate} refreshNodes={refreshNodes} onUnauthorized={onUnauthorized} onOpenSettings={() => setSection('installation')} />}
-            {section === 'probes' && <ProbesPanel data={data} mutate={mutate} onUnauthorized={onUnauthorized} />}
+            {section === 'probes' && <ProbesPanel probes={data.probes} nodes={data.nodes} refresh={refreshNodes} onUnauthorized={onUnauthorized} />}
             {section === 'alerts' && <AlertsPanel data={data} mutate={mutate} />}
             {section === 'storage' && <StoragePanel storage={data.storage} mutate={mutate} />}
             {section === 'public' && <PublicConfigPanel data={data} mutate={mutate} />}
@@ -167,57 +161,6 @@ function sectionLabel(section: Section, t: Translate): string {
 
 type Mutate = (action: () => Promise<void>, success: string) => Promise<void>
 
-
-function ProbesPanel({ data, mutate, onUnauthorized }: { data: DashboardData; mutate: Mutate; onUnauthorized: () => void }) {
-  const { language, t } = useI18n()
-  const [selectedID, setSelectedID] = useState(data.probes[0]?.id ?? '')
-  const [history, setHistory] = useState<ProbeHistoryState>({ status: 'idle' })
-  const selected = data.probes.find((probe) => probe.id === selectedID) ?? data.probes[0]
-  const selectedNode = selected?.nodeIds[0]
-  useEffect(() => {
-    if (!selected || !selectedNode) { setHistory({ status: 'idle' }); return }
-    setHistory({ status: 'loading' })
-    const controller = new AbortController()
-    const to = new Date(), from = new Date(to.getTime() - 24 * 60 * 60 * 1000)
-    const query = new URLSearchParams({ node_id: selectedNode, task_id: selected.id, resolution: '1m', from: from.toISOString(), to: to.toISOString() })
-    apiRequest(`/api/v1/admin/telemetry/probe?${query}`, decodeProbePoints, { signal: controller.signal })
-      .then((points) => setHistory({ status: 'success', points }))
-      .catch((caught: unknown) => {
-        if (controller.signal.aborted) return
-        if (caught instanceof APIError && caught.status === 401) {
-          onUnauthorized()
-          return
-        }
-        setHistory({ status: 'error', message: errorMessage(caught, t) })
-      })
-    return () => controller.abort()
-  }, [selected?.id, selectedNode, onUnauthorized, t])
-  const create = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    const form = new FormData(event.currentTarget)
-    return mutate(() => apiMutation('/api/v1/admin/probes', { body: {
-      name: form.get('name'), host: form.get('host'), port: Number(form.get('port')),
-      interval_seconds: Number(form.get('interval')), node_ids: form.getAll('node_ids').map(String),
-    } }), t('probeCreated'))
-  }
-  return (
-    <div className="stack">
-      <section className="panel"><h2>{t('createTcpProbe')}</h2><p className="muted">{t('tcpProbeDescription')}</p>
-        <form className="form-grid" onSubmit={(event) => void create(event)}>
-          <label>{t('name')}<input name="name" maxLength={128} required /></label><label>{t('host')}<input name="host" required /></label>
-          <label>{t('port')}<input name="port" type="number" min={1} max={65535} required /></label><label>{t('intervalSeconds')}<input name="interval" type="number" min={5} max={3600} defaultValue={30} required /></label>
-          <fieldset><legend>{t('executionNodes')}</legend>{data.nodes.map((node) => <label className="check" key={node.id}><input type="checkbox" name="node_ids" value={node.id} />{node.name}</label>)}</fieldset>
-          <button className="primary">{t('createProbe')}</button>
-        </form>
-      </section>
-      <section className="panel"><h2>{t('probeTasks')}</h2>{data.probes.length === 0 ? <p className="empty">{t('noProbes')}</p> : <div className="list">{data.probes.map((probe) => {
-        const attempts = probe.latest.length, failures = probe.latest.filter((item) => !item.success).length
-        return <article key={probe.id} className={selected?.id === probe.id ? 'list-item selected' : 'list-item'}><button className="item-main" onClick={() => setSelectedID(probe.id)}><strong>{probe.name}</strong><span>{probe.host}:{probe.port} · {t('everySeconds', { seconds: probe.intervalSeconds })}</span><span>{t('currentFailureRate', { rate: attempts ? formatPercent((failures / attempts) * 100, language) : t('noResults') })}</span></button><button className="danger" aria-label={t('deleteNamed', { name: probe.name })} onClick={() => { if (window.confirm(t('confirmDeleteProbe', { name: probe.name }))) void mutate(() => apiMutation(`/api/v1/admin/probes/${encodeURIComponent(probe.id)}`, { method: 'DELETE' }), t('probeDeleted')) }}>{t('delete')}</button></article>
-      })}</div>}</section>
-      {selected && <section className="panel"><h2>{t('historyTitle', { name: selected.name })}</h2>{history.status === 'loading' ? <p role="status">{t('loadingProbeHistory')}</p> : history.status === 'error' ? <p className="notice warning" role="alert">{t('probeHistoryUnavailable', { message: history.message })}</p> : history.status === 'idle' ? <p className="empty">{t('assignProbe')}</p> : <div className="chart-grid"><MetricChart title={t('tcpLatency')} points={history.points.map((point) => ({ at: point.bucketStart, value: point.latencyAverage }))} formatValue={(value) => value === null ? t('unavailable') : `${value.toFixed(1)} ms`} /><MetricChart title={t('tcpFailureRate')} points={history.points.map((point) => ({ at: point.bucketStart, value: (1 - point.successRate) * 100 }))} formatValue={(value) => formatPercent(value, language)} /></div>}</section>}
-    </div>
-  )
-}
 
 function AlertsPanel({ data, mutate }: { data: DashboardData; mutate: Mutate }) {
   const { t } = useI18n()

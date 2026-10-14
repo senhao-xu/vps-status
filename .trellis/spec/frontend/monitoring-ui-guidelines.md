@@ -139,3 +139,79 @@ const node = (await response.json()) as PublicNode
 const payload: unknown = await response.json()
 const status = decodePublicStatus(payload)
 ```
+
+## Scenario: TCP task management and retained history
+
+### 1. Scope / Trigger
+
+Use for TCP task/node views, task editing, latest-result summaries and history
+selection. References: `ProbesPanel`, `ProbeTaskDialog`, `probePresentation`,
+`probeHistory` and the existing administrator CRUD/telemetry APIs.
+
+### 2. Signatures
+
+- `ProbeTask.updatedAt: string` strictly decodes existing `updated_at`.
+- `probeHistoryQueries(taskId, nodeId, range, now): string[]`, where range is
+  `24h | 7d | 30d` and each query has task/node IDs, resolution, from and to.
+- `loadProbeHistory(taskId, nodeId, range, signal): Promise<ProbePoint[]>`.
+- `MetricChart` supports optional `timeScale`; TCP enables it, preserving
+  other chart defaults.
+
+### 3. Contracts
+
+- Task dialogs use existing POST/PATCH/DELETE routes and CSRF client. A
+  synchronous request ref prevents duplicate writes; failed writes keep the
+  form/dialog and its error visible. Success refreshes the existing parent
+  snapshot owner. Pending dialogs cannot be dismissed; cancel/delete dialog
+  initial focus is safe and focus returns to a still-connected trigger.
+- Results are snapshots of one latest sample per assigned node, not a
+  historical failure rate. Unassigned and waiting are explicit states.
+- `updated_at` is stored in whole seconds. Ignore latest samples with
+  `receivedAt < (floor(updatedAtMillis / 1000) + 1) * 1000`, including the
+  ambiguous update second. A fresh sample in that second conservatively waits
+  until a subsequent sample; never claim it proves the edited target succeeded.
+- History has an explicit assigned node; never silently select the first.
+  Task/node/range/refresh changes isolate history state and abort old requests.
+- Retention tiers are non-overlapping: 1m recent24h, 10m older through7d,
+  1h older through30d. Query all required tiers with one clock and shared
+  cancellation. Align tier transitions to the same ceil10m/ceil1h boundaries
+  as backend retention and adjacent `[from,to)` windows. Merge chronologically;
+  finer tiers take precedence on duplicate timestamps. Any failed tier rejects
+  the whole range; do not plot a misleading partial window.
+- Mixed-resolution charts position x coordinates by elapsed time rather than
+  sample index, and retain the existing accessible timestamp/value table.
+
+### 4. Validation & Error Matrix
+
+| Condition | Result |
+|---|---|
+| No assigned node / no current sample | Unassigned / waiting text, no invented zero |
+| Old assignment or sample in/before update second | Excluded from current counts/results |
+| One retained tier fails | History error and retry, task management remains usable |
+| Task/node/range changes while request pending | Old requests aborted; old curve removed |
+| Mutation fails / returns401 | Dialog error / existing unauthorized boundary |
+| Repeated submit while pending | One mutation request |
+
+### 5. Good / Base / Bad Cases
+
+- Good: 30d queries hourly, ten-minute and minute windows and plots actual time.
+- Base: an unassigned task can be saved and edited later; history explains why
+  it has no samples.
+- Bad: a 7d view queries only10m data, dropping the newest24h, or labels an
+  old target's sample as the edited target's success.
+
+### 6. Tests Required
+
+Assert tier windows cover the complete requested range without overlaps;
+merge ordering, all-or-error503/401, shared abort; updated_at validation and
+same-second/latest-assignment filtering; timed chart coordinates. Browser
+checks cover CRUD, pending/error/focus, node search, view/history selection,
+and zh/en with both visual themes/modes at320px.
+
+### 7. Wrong vs Correct
+
+Wrong: query only `resolution=1h` for30d, or use `receivedAt >= updatedAt`
+without accounting for the database timestamp precision.
+
+Correct: use `loadProbeHistory` across all required tiers; `latestProbeResult`
+applies assignment and configuration-update-second filtering centrally.

@@ -10,18 +10,24 @@ interface MetricChartProps {
   title: string
   points: ChartPoint[]
   formatValue: (value: number | null) => string
+  timeScale?: boolean
 }
 
-export function MetricChart({ title, points, formatValue }: MetricChartProps) {
+export function MetricChart({ title, points, formatValue, timeScale = false }: MetricChartProps) {
   const { language, t } = useI18n()
   const valid = points.filter((point): point is ChartPoint & { value: number } => point.value !== null)
   const max = Math.max(1, ...valid.map((point) => point.value))
   const width = 640
   const height = 160
+  const firstTime = points.length ? Date.parse(points[0].at) : 0
+  const lastTime = points.length ? Date.parse(points[points.length - 1].at) : 0
+  const timeSpan = lastTime - firstTime
   const line = valid
     .map((point, index) => {
       const sourceIndex = points.indexOf(point)
-      const x = points.length <= 1 ? 0 : (sourceIndex / (points.length - 1)) * width
+      const x = timeScale
+        ? timeSpan > 0 ? ((Date.parse(point.at) - firstTime) / timeSpan) * width : 0
+        : points.length <= 1 ? 0 : (sourceIndex / (points.length - 1)) * width
       const y = height - (point.value / max) * (height - 12)
       return `${index === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`
     })

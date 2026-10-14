@@ -75,6 +75,27 @@ TCP 结果使用相同的分钟边界，记录 attempts/success/failure 和成�
 
 ## 5. TCP scheduler safety
 
+### TCP administrator page refinement
+
+The authenticated TCP page uses existing task CRUD and telemetry APIs, with
+task/node views, compact metadata rows and a native add/edit dialog. History
+selection is explicit by task ID, assigned node ID and retention-compatible
+range/resolution; no selection by display name or implicit first-node claim.
+The existing AdminDashboard snapshot owner reloads after mutations and manual
+refresh. New feature files own local editor/search/history state and cancel
+requests when their selection changes. Missing samples remain unknown, and
+charts retain an accessible table. Reference evidence and exact change scope:
+`research/tcp-page-comparison.md`. This UI increment adds no probe protocol,
+backend schema or network actions.
+
+Longer history uses one fixed query clock and all non-overlapping retained
+tiers through existing endpoints. Windows align with retention's ceil-to-10m
+and ceil-to-hour boundaries and are adjacent half-open intervals; any failed
+tier rejects the entire history. TCP charts place samples by timestamp.
+The existing server `updated_at` field is strictly decoded; because the
+database stores it in seconds, latest samples from before or during the
+configuration-update second are treated as waiting until a later sample.
+
 - Control 在一个事务内验证每节点最多 64 个任务与 5–3600 秒间隔；Agent 再次独立校验并拒绝/截断超界快照。
 - 目标支持 DNS、IPv4 和 IPv6；允许私网与回环，禁止 unspecified、multicast 和端口 0。DNS 解析后再校验地址类型。
 - 每次最多取 3 个解析地址，串行尝试；每个连接上限 1 秒，整个检查上限 3 秒，首个成功即结束，不做额外重试。
