@@ -233,3 +233,37 @@ Refined notifications, storage, publication, security and appearance against Kom
 ### Status
 
 [OK] **Completed**
+
+
+## Session 9: Latency checks, homepage settings and local deployment
+
+**Date**: 2026-10-15
+**Task**: Latency checks, homepage settings and local deployment
+**Branch**: `main`
+
+### Summary
+
+Implemented latency detail dialogs, monitor-style TCP target/selection/auto-join, first-class homepage/site settings, node display controls and login presentation. Verified migrations/concurrency/safe DTO,223 frontend tests, Go full/race/vet/tagged checks and browser flows; deployed verified local snapshots with backups. User authorized commit and push. Parent task remains active for outstanding security/capacity work.
+
+### Main Changes
+
+- Control schemas10/11 preserve legacy task/site choices and merge concurrent enrollment/configuration updates atomically.
+- Refined zh/en theme/mobile UI, homepage button and administrator login; updated source-backed specs and verification evidence.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `07a3233` | (see git log) |
+
+### Testing
+
+- [OK] Frontend lint/typecheck/223 tests/build; Go full/race/vet/tagged; isolated migration/API/browser and deployed health/assets/backup comparisons passed.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Complete outstanding parent security/capacity acceptance; keep parent task active.
