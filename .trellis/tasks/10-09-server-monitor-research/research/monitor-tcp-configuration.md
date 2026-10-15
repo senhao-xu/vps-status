@@ -1,0 +1,7 @@
+# monitor-style TCP configuration reference and boundary
+
+Date:2026-10-15. User explicitly chose monitor-style TCP configuration after inspecting the old host/port creation dialog.
+
+Primary source: [monitor 延迟监控](https://monitor-document.pages.dev/config/ping), verified2026-10-15. Its form uses a single host:port target (bracketed IPv6), 5–3600s interval default60, group-filterable node selection and new-node auto-join. Registered nodes run checks after configuration is pushed without Agent restart. This remains TCP handshake measurement, not ICMP/HTTP. Earlier source inspection of monitor c532d54843b87f8001f8387a7acdf1d440b23f40 Admin.tsx also confirmed new-task default-all selections and default auto_join=true.
+
+Adaptation: frontend single target maps to existing host/port fields; grouped/searchable picker retains hidden choices and explicit deselections. Persistent control-only auto_join defaultsfalse for migrated tasks and old API clients. New UI defaults60/all/true. Future node registration assigns enabled definitions atomically with credentials/token consumption and advances probe version. Enabled definitions are capped64 transactionally; existing assignments retain their independent64 quota. No Agent message or detection method changes. Existing detail/history workflow remains. Excludes drag sorting, by-node bulk editor and public latency exposure. Schema10 backup is required for downgrade; preserve paired master key and telemetry on rollback.

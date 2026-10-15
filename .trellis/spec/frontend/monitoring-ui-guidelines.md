@@ -27,10 +27,12 @@ administrator `EventSource` lifecycle.
   Match the path segment: `/administrator` must not mount the admin boundary.
   Public rendering never checks administrator setup/session or opens private
   SSE, even if the browser has a valid administrator cookie.
-- Every public state (loading, error, disabled, populated, empty) retains a
-  localized `/admin` link at the top right, with wrapping at 320px. Login and
-  dashboard public-page links return to `/`. Root navigation never silently
-  enables publication or changes the server-side node allowlist.
+- Every homepage state (loading, error, login-required, populated, empty) retains a
+  localized `/admin` link at the top right, with wrapping at 320px. The login
+  form has no homepage link; the dashboard homepage button returns to `/`. Root navigation never mutates site settings or node homepage visibility.
+  A restricted status401 shows a login entry at /admin?next=home; after
+  authentication this fixed destination returns to /. Other query destinations
+  must never become arbitrary redirects.
 - `fetch().json()`, SSE `data`, and errors remain `unknown` until one shared
   decoder validates them. Components do not cast payloads.
 - Session cookies remain HttpOnly; CSRF comes from the same-origin cookie or
@@ -93,7 +95,8 @@ administrator `EventSource` lifecycle.
 | SSE parse/network failure | Source closes and bounded reconnect starts |
 | Appearance bootstrap fails | Emerald fallback, rest of UI continues |
 | `/` requested without a session | Public status page; top-right admin link remains available |
-| Public page disabled or status request fails | Disabled/error notice with admin link; no automatic login redirect |
+| Restricted homepage401 | Login-required state with fixed /admin?next=home CTA |
+| Other status failure | Error and retry with admin link |
 | `/admin` requested without a session | Administrator login or first-run setup |
 | Enrollment revocation/regeneration returns `409 enrollment_consumed` | Refresh current enrollment status; do not create another token |
 | Enrollment revocation/regeneration returns `404 not_found` | Show missing-record guidance; do not create a replacement token |
@@ -140,12 +143,13 @@ const payload: unknown = await response.json()
 const status = decodePublicStatus(payload)
 ```
 
-## Scenario: TCP task management and retained history
+## Scenario: latency check management and retained history
 
 ### 1. Scope / Trigger
 
-Use for TCP task/node views, task editing, latest-result summaries and history
-selection. References: `ProbesPanel`, `ProbeTaskDialog`, `probePresentation`,
+Use for latency-check task/node views, task editing, latest-result summaries
+and detail/history selection. References: `ProbesPanel`, `ProbeTaskDialog`,
+`ProbeDetailDialog`, `ProbeResult`, `SettingsDialog`, `probePresentation`,
 `probeHistory` and the existing administrator CRUD/telemetry APIs.
 
 ### 2. Signatures
@@ -170,8 +174,27 @@ selection. References: `ProbesPanel`, `ProbeTaskDialog`, `probePresentation`,
   `receivedAt < (floor(updatedAtMillis / 1000) + 1) * 1000`, including the
   ambiguous update second. A fresh sample in that second conservatively waits
   until a subsequent sample; never claim it proves the edited target succeeded.
+- Visible management copy is 延迟检测 / Latency checks; method metadata and
+  latency chart titles explicitly identify TCP connection latency. This naming
+  change does not add ICMP/HTTP or change backend probe routes/protocol.
+- `ProbesPanel` stores nullable `{ taskId, nodeId }` detail selection. Names,
+  View details actions and node-result buttons open a native `SettingsDialog`;
+  there is no auto-opened first task or permanent bottom history section.
+  Task-only entry starts without a selected node; node entry carries its ID.
 - History has an explicit assigned node; never silently select the first.
-  Task/node/range/refresh changes isolate history state and abort old requests.
+  Render history only inside an open detail dialog with a valid assignment.
+  Task/node/range/refresh/config-update changes isolate history state and abort
+  old requests. Closing unmounts and aborts; opening again starts a fresh view.
+  Refresh derives current metadata from the parent snapshot, clears removed
+  assignments permanently and closes a deleted task's dialog. Reassigning a
+  node later must not resurrect a previously invalidated selection.
+- Shared native-dialog lifecycle provides focus containment, Escape/cancel
+  and restoration. When a viewed row disappears, a stable Add button ref is
+  the focus fallback. Read-only history loading does not block dismissal.
+- Retained buckets describe a task's history and may include earlier task
+  configurations; do not discard them by `updatedAt`. Only latest/current
+  outcomes use the update-second freshness filter above. Explain retained
+  history semantics next to the modal's history controls.
 - Retention tiers are non-overlapping: 1m recent24h, 10m older through7d,
   1h older through30d. Query all required tiers with one clock and shared
   cancellation. Align tier transitions to the same ceil10m/ceil1h boundaries
@@ -188,7 +211,9 @@ selection. References: `ProbesPanel`, `ProbeTaskDialog`, `probePresentation`,
 | No assigned node / no current sample | Unassigned / waiting text, no invented zero |
 | Old assignment or sample in/before update second | Excluded from current counts/results |
 | One retained tier fails | History error and retry, task management remains usable |
-| Task/node/range changes while request pending | Old requests aborted; old curve removed |
+| Task/node/range changes or modal closes while request pending | Old requests aborted; old curve removed |
+| No detail open / task-only entry without a node | No probe-history requests |
+| Assigned node removed / task deleted on refresh | Clear node selection / close modal and restore focus |
 | Mutation fails / returns401 | Dialog error / existing unauthorized boundary |
 | Repeated submit while pending | One mutation request |
 
@@ -206,7 +231,10 @@ Assert tier windows cover the complete requested range without overlaps;
 merge ordering, all-or-error503/401, shared abort; updated_at validation and
 same-second/latest-assignment filtering; timed chart coordinates. Browser
 checks cover CRUD, pending/error/focus, node search, view/history selection,
-and zh/en with both visual themes/modes at320px.
+and zh/en with both visual themes/modes at320px. Detail checks assert no eager
+history, entry-node identity, close/switch cancellation, assignment removal
+and reassign non-resurrection, deleted-task fallback focus and read-only
+dismissal during pending/error history.
 
 ### 7. Wrong vs Correct
 
@@ -221,8 +249,18 @@ applies assignment and configuration-update-second filtering centrally.
 Settings panels use existing authenticated APIs and the parent snapshot refresh owner. `useAdminAction(onUnauthorized)` owns one cancellable write per panel with a synchronous request guard, observable pending/error/success, abort on unmount and the usual 401 auth exit. A failed write keeps its form/dialog draft; do not close a dialog on completion of the legacy `mutate` helper, which catches failure internally.
 
 - Alert creation dialogs use native modal focus/cancel behavior. Conditional provider fields require distinct keyed subtrees: switching Webhook/Telegram clears old fields rather than reusing an uncontrolled password value as a plain-text Chat ID. Named scope controls submit IDs for nodes and names for groups. Offline rules send zero threshold/hysteresis. Channel secrets only live in an open dialog.
-- Public settings draft fields derive pristine values from refreshed config; dirty overrides survive filtering, language changes and snapshot reloads. `acknowledgePublicDraft` keeps successful server-normalized PUT values until a matching snapshot acknowledges all fields (allowlist IDs compared as sets), then clears overrides permanently. Filtering affects visible choices, never implicitly deselects hidden choices. The administrator draft preview renders explicit title/description/display name/group only and never feeds an admin Node into a public component.
+- Site settings contain title, description and the inverted enabled control “Access requires login”. They send no node_ids. Scalar drafts derive pristine values from refreshed config, retain dirty overrides and successful normalized values until matching acknowledgement, and preserve edits made while saving. Node settings own homepage_visible independently of hidden; the admin decoder accepts a missing legacy field as false and rejects a present malformed field. The homepage always consumes the strict status DTO, including after login; it never mounts private SSE or renders admin Node objects.
 - Storage keeps independent `clear_history` and `reset_all_telemetry` inputs, checks exact strings again in the handler, disables all operations during pending writes and clears only the successful operation's confirmation. Maintenance and destructive actions are separate sections.
 - MFA setup/confirm/disable retain secrets and recovery codes only in component memory. After a successful confirm/disable, a committed boolean override reflects the write while session refresh is pending/failed. Keep one-time recovery codes on refresh failure, show a retry that only refreshes the session, and block further MFA mutations until refresh succeeds. Dismissing codes must never re-offer setup based on a stale session. Password change continues its independent session-revocation contract.
 
-Validation: unit checks for selection retention, saved draft acknowledgement/old snapshots, safe preview; isolated browser provider switching in both directions, failed writes/retries, duplicate submit/cancel/focus, pristine/dirty refresh, exact cleanup confirmations, real MFA write with failed session refresh, password logout, zh/en and both themes/modes at320px.
+Validation: unit checks for selection retention, saved draft acknowledgement/old snapshots, homepage login/return and per-node visibility; isolated browser provider switching in both directions, failed writes/retries, duplicate submit/cancel/focus, pristine/dirty refresh, exact cleanup confirmations, real MFA write with failed session refresh, password logout, zh/en and both themes/modes at320px.
+
+
+## Scenario: monitor-style TCP configuration
+
+- `parseProbeTarget(value)` accepts an explicit host:port authority or bracketed IPv6 and returns existing `{host, port}` API fields. Reject missing/out-of-range/noninteger ports, ambiguous unbracketed IPv6, whitespace, URL schemes/paths/userinfo/query/fragment. Backend retains authoritative unicast/hostname validation.
+- New dialog defaults interval60, all available node IDs, autoJointrue. Editing derives refreshed task by stable ID while uncontrolled draft fields stay mounted; absent/deleted task cannot turn an edit into a create.
+- `ProbeTask.autoJoin` decodes `auto_join` strictly when present, defaultsfalse only for missing legacy field. Writes send bool `auto_join`; legacy server DTO compatibility does not justify silently accepting malformed types.
+- Group filter sentinel cannot collide with group names (including empty/all). Search and group filters never change chosen IDs. Select/deselect shown affect only visible IDs. `probeSelection` merges current default/assigned IDs with explicit boolean overrides, so newly auto-assigned nodes appear while user deselections remain deselected across refresh.
+- Compact no-node guidance allows saving for future auto-join; do not display protocol internals such as payload/Banner restrictions in the configuration flow. Failed/pending writes preserve draft, prevent duplicate submission and pending dismissal;409 probe_auto_join_limit has localized actionable feedback.
+- Verification: parser/selection/decoder unit cases; real IPv6 create/edit, group/search hidden-selection preservation, default60/all/true, migrated legacyfalse, real later enrollment and disabled toggle, refreshed assignments vs explicit choice, errors/pending/focus, zh/en and themes at320px.

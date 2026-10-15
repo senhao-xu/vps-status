@@ -40,18 +40,30 @@ func (s *Store) PublicPageConfig(ctx context.Context) (PublicPage, error) {
 	return page, nil
 }
 
-// UpdatePublicPage atomically replaces presentation settings and the complete
-// publication allowlist. Every referenced node must still be active.
+// UpdatePublicPage retains the legacy complete replacement operation.
 func (s *Store) UpdatePublicPage(ctx context.Context, page PublicPage, now time.Time) error {
+	return s.UpdateSiteSettings(ctx, page, &page.NodeIDs, now)
+}
+
+// UpdateSiteSettings saves presentation/access settings and optionally replaces
+// display membership. A nil nodeIDs preserves membership inside this transaction,
+// including nodes enrolled or edited since the settings form was loaded.
+func (s *Store) UpdateSiteSettings(ctx context.Context, page PublicPage, nodeIDs *[]string, now time.Time) error {
 	page.Title = strings.TrimSpace(page.Title)
 	page.Description = strings.TrimSpace(page.Description)
-	if page.Title == "" || len(page.Title) > 128 || len(page.Description) > 512 || len(page.NodeIDs) > MaxPublicNodes {
+	if page.Title == "" || len(page.Title) > 128 || len(page.Description) > 512 {
 		return ErrInvalidPublicConfiguration
 	}
-	nodeIDs := append([]string(nil), page.NodeIDs...)
-	sort.Strings(nodeIDs)
-	for index, nodeID := range nodeIDs {
-		if nodeID == "" || len(nodeID) > 128 || index > 0 && nodeIDs[index-1] == nodeID {
+	var replacement []string
+	if nodeIDs != nil {
+		if len(*nodeIDs) > MaxPublicNodes {
+			return ErrInvalidPublicConfiguration
+		}
+		replacement = append([]string(nil), (*nodeIDs)...)
+	}
+	sort.Strings(replacement)
+	for index, nodeID := range replacement {
+		if nodeID == "" || len(nodeID) > 128 || index > 0 && replacement[index-1] == nodeID {
 			return ErrInvalidPublicConfiguration
 		}
 	}
@@ -60,7 +72,7 @@ func (s *Store) UpdatePublicPage(ctx context.Context, page PublicPage, now time.
 		return fmt.Errorf("begin public page update: %w", err)
 	}
 	defer tx.Rollback()
-	for _, nodeID := range nodeIDs {
+	for _, nodeID := range replacement {
 		var exists int
 		if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM nodes WHERE id=? AND deleted_at IS NULL)`, nodeID).Scan(&exists); err != nil {
 			return fmt.Errorf("validate public node: %w", err)
@@ -73,12 +85,14 @@ func (s *Store) UpdatePublicPage(ctx context.Context, page PublicPage, now time.
 		boolInt(page.Enabled), page.Title, page.Description, unix(now)); err != nil {
 		return fmt.Errorf("update public page: %w", err)
 	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM public_nodes`); err != nil {
-		return fmt.Errorf("replace public nodes: %w", err)
-	}
-	for _, nodeID := range nodeIDs {
-		if _, err := tx.ExecContext(ctx, `INSERT INTO public_nodes(node_id,published_at) VALUES(?,?)`, nodeID, unix(now)); err != nil {
-			return fmt.Errorf("publish node: %w", err)
+	if nodeIDs != nil {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM public_nodes`); err != nil {
+			return fmt.Errorf("replace public nodes: %w", err)
+		}
+		for _, nodeID := range replacement {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO public_nodes(node_id,published_at) VALUES(?,?)`, nodeID, unix(now)); err != nil {
+				return fmt.Errorf("publish node: %w", err)
+			}
 		}
 	}
 	if err := tx.Commit(); err != nil {
@@ -90,7 +104,7 @@ func (s *Store) UpdatePublicPage(ctx context.Context, page PublicPage, now time.
 // ListPublishedNodes returns only active nodes present in the server-side
 // publication allowlist. Callers must still project them to a public DTO.
 func (s *Store) ListPublishedNodes(ctx context.Context) ([]Node, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT n.id,n.name,n.group_name,n.hidden,n.hostname,n.os,n.kernel,n.architecture,n.virtualization,n.created_at,n.updated_at
+	rows, err := s.db.QueryContext(ctx, `SELECT n.id,n.name,n.group_name,n.hidden,n.hostname,n.os,n.kernel,n.architecture,n.virtualization,n.created_at,n.updated_at,1
 		FROM public_nodes p JOIN nodes n ON n.id=p.node_id WHERE n.deleted_at IS NULL
 		ORDER BY n.group_name,n.name,n.id`)
 	if err != nil {

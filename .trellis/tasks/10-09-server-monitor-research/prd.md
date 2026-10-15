@@ -126,3 +126,33 @@
 ### 2026-10-14: other-page optimization increment
 
 User explicitly requests “其他页面也参考下，做一版更新优化”. Optimize remaining pages against Komari/monitor: alert channel/rule management with conditional forms and readable scopes; storage overview/maintenance/destructive grouping; public-page identity, searchable/grouped allowlist and safe preview; cohesive appearance/security/settings layout; minor shared shell/auth/public presentation polish where useful. Existing node/TCP workflows remain compatible. All new copy is zh/en, theme-token driven and usable at 320px. Existing APIs, public/private boundary, password session revocation, exact destructive strings and memory-only secrets remain. Verify real interactions on an isolated instance, then commit/push and update local Control under prior authorization. No new runtime dependencies, backend features, plugin/theme uploads or security/toolchain expansion.
+
+### 2026-10-15: 延迟检测与详情弹窗
+
+用户要求将 TCP 探测改为“延迟检测”，增加查看弹窗，并参考 Komari 与 monitor。
+- 后台导航、页标题、增改删反馈和空状态统一使用“延迟检测”及对应英文 Latency checks；具体方法仍明确标为 TCP 建连延迟。
+- 任务与节点视图均可打开查看详情弹窗，显示目标、间隔、执行节点及最近结果，并可在弹窗内选择执行节点和 24h/7d/30d 历史范围、查看延迟与失败率曲线。
+- 移除页面底部长驻历史区域；未选择节点、未分配、等待结果、历史为空及请求失败均提供准确反馈。只在详情打开且选择有效节点时获取历史，关闭或切换取消旧请求。
+- 保留原有 CRUD、协议、分层历史拼接、鉴权、双语、主题、键盘焦点恢复与 320px 布局。此次不新增检测协议或后端接口。
+
+### 2026-10-15: monitor 式 TCP 配置流程
+
+用户在查看添加弹窗后明确选择“按 monitor 优化 TCP 配置流程”。将检测配置改成统一目标地址 `host:port`（IPv6 为 `[address]:port`），默认间隔60秒；新增任务默认选中所有现有节点。运行节点支持分组和搜索筛选、全选/取消选择当前显示，筛选不隐式改变隐藏选择。提供默认开启的“新节点自动加入”，保存后未来接入的节点真实自动分配任务；编辑保留已有选择与开关。保持现有TCP方式、64任务/节点和5–3600秒上限、双语/主题/320px与详情弹窗。没有节点时给出明确添加节点指引并允许保存待运行任务。去掉主界面中面向实现细节的 Banner/载荷说明。完成测试后更新本地Docker，保留数据与Agent版本。
+
+### 2026-10-15: 首页与站点设置（替代原默认私有/逐个公开流程）
+
+用户认可竞品对比并明确要求实现：公开首页作为正常使用方式，后台只做站点/节点展示设置。以下要求替代此前“节点默认私有、默认关闭公开页”的产品默认值；公开数据字段边界继续有效。
+- “公开页面”入口改为“站点设置”，集中站点名称、描述与次要的“访问需登录”选项；去掉独立发布节点选择/预览流程及白名单、DTO等实现说明。首页/站点导航使用自然名称。
+- 新安装与从未配置过站点的旧安装默认允许访客查看首页；明确保存过的访问设置保留，既有节点展示选择不自动扩大。
+- 新注册节点默认首页显示，节点设置增加“首页显示”开关，独立于管理总览的隐藏设置。修改名称/分组不能意外改变展示状态。
+- 打开“访问需登录”后访客显示登录入口，有效管理员登录后可回到同一个只读首页；所有展示仍使用原公共DTO，不返回主机身份、凭据或内部ID。
+- 站点保存不覆盖并发节点展示变更/新注册节点，节点保存与展示状态原子更新；取消、错误、401、登录过期有清楚反馈。保留双语、主题、320px布局和当前延迟检测功能。
+- 验证后更新本地Docker，备份原数据；不修改真实管理员密码，不提交/推送未经确认的源码。
+
+### 2026-10-15: 首页入口按钮外观
+
+用户截图指定后台右上角“首页 ↗”，要求改为按钮样式。保留链接语义、首页地址及新窗口行为，使用现有主题样式并兼容320px；验证后更新本地Docker。仅修改该入口外观。
+
+追加要求：顶部首页按钮去掉“↗”符号；中文仅“首页”，英文仅“Homepage”，保留按钮外观和新窗口行为。
+
+追加要求：删除管理员登录表单内“打开首页”链接；保留首页入口按钮、登录与受限站点登录返回流程。验证后更新本地Docker。

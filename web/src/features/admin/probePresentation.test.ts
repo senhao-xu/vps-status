@@ -6,9 +6,9 @@ import { latestProbeResult, matchesProbe, probeHistoryQueries, probeSummary, pro
 const result = (nodeId: string, success: boolean, minute = 0): ProbeLatest => ({
   nodeId, success, receivedAt: `2026-10-14T08:${String(minute).padStart(2, '0')}:00Z`, latencyMillis: success ? 12 : 0, error: success ? '' : 'timeout',
 })
-const task: ProbeTask = { id: 'task', name: 'HTTPS gateway', host: 'example.com', port: 443, intervalSeconds: 30, updatedAt: '2026-10-14T07:00:00Z', nodeIds: ['a', 'b'], latest: [] }
+const task: ProbeTask = { id: 'task', name: 'HTTPS gateway', host: 'example.com', port: 443, intervalSeconds: 30, autoJoin: false, updatedAt: '2026-10-14T07:00:00Z', nodeIds: ['a', 'b'], latest: [] }
 const node = (id: string, name: string, group: string): Node => ({
-  id, name, group, hidden: false, hostname: '', os: '', kernel: '', architecture: '', virtualization: '',
+  id, name, group, hidden: false, homepageVisible: false, hostname: '', os: '', kernel: '', architecture: '', virtualization: '',
   connected: false, online: false, lastReportAt: null, report: null,
 })
 

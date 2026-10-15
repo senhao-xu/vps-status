@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { decodeEnrollment, decodeLiveEvent, decodeProbeTask, decodePublicStatus, decodeReport, decodeStorageStats, reduceNodeEvent, type Node } from './contracts'
+import { decodeEnrollment, decodeNode, decodeLiveEvent, decodeProbeTask, decodePublicStatus, decodeReport, decodeStorageStats, reduceNodeEvent, type Node } from './contracts'
 
 const publicNode = {
   name: 'Singapore edge', group: 'SG', online: true, uptime_seconds: 60, cpu_usage_percent: 10,
@@ -110,7 +110,7 @@ describe('decodeLiveEvent', () => {
 
 describe('reduceNodeEvent', () => {
   const node: Node = {
-    id: 'node-1', name: 'Edge', group: '', hidden: false, hostname: '', os: '', kernel: '', architecture: '', virtualization: '',
+    id: 'node-1', name: 'Edge', group: '', hidden: false, homepageVisible: false, hostname: '', os: '', kernel: '', architecture: '', virtualization: '',
     connected: true, online: true, lastReportAt: '2026-10-11T00:01:00Z', report: null,
   }
 
@@ -144,8 +144,40 @@ describe('decodeProbeTask', () => {
   it('retains the authoritative configuration timestamp for invalidating old-target results', () => {
     expect(decodeProbeTask(payload).updatedAt).toBe('2026-10-14T08:02:00Z')
   })
+  it('defaults legacy auto-join to false and strictly decodes supplied values', () => {
+    expect(decodeProbeTask(payload).autoJoin).toBe(false)
+    expect(decodeProbeTask({ ...payload, auto_join: true }).autoJoin).toBe(true)
+    expect(decodeProbeTask({ ...payload, auto_join: false }).autoJoin).toBe(false)
+    for (const auto_join of [null, 1, 'true', {}, []]) expect(() => decodeProbeTask({ ...payload, auto_join })).toThrow()
+  })
   it('rejects missing or invalid configuration timestamps', () => {
     expect(() => decodeProbeTask({ ...payload, updated_at: undefined })).toThrow()
     expect(() => decodeProbeTask({ ...payload, updated_at: 'invalid' })).toThrow()
+  })
+})
+
+
+describe('decodeNode homepage display', () => {
+  const payload = {
+    id: 'node', name: 'Edge', group: '', hidden: true,
+    hostname: '', os: '', kernel: '', architecture: '', virtualization: '',
+    created_at: '2026-10-15T00:00:00Z', updated_at: '2026-10-15T00:00:00Z',
+    connected: false, online: false,
+  }
+
+  it('strictly decodes visibility independently of administrator hiding, with a legacy false fallback', () => {
+    expect(decodeNode(payload).homepageVisible).toBe(false)
+    expect(decodeNode({ ...payload, homepage_visible: false }).homepageVisible).toBe(false)
+    const node = decodeNode({ ...payload, homepage_visible: true })
+    expect(node.homepageVisible).toBe(true)
+    expect(node.hidden).toBe(true)
+    for (const homepage_visible of [null, 0, 1, 'true', {}, []]) {
+      expect(() => decodeNode({ ...payload, homepage_visible })).toThrow()
+    }
+  })
+
+  it('does not admit visibility or access configuration into the public node contract', () => {
+    expect(() => decodePublicStatus({ page: { enabled: true, title: 'Status', description: '' }, nodes: [{ ...publicNode, homepage_visible: true }] })).toThrow(/forbidden field/)
+    expect(() => decodePublicStatus({ page: { enabled: true, title: 'Status', description: '', require_login: true }, nodes: [] })).toThrow(/forbidden field/)
   })
 })

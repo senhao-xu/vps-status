@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { PublicStatus } from '../../api/contracts'
 import { I18nProvider } from '../../i18n'
 import { ThemeProvider } from '../../theme'
-import { PublicStatusPage, PublicStatusView } from './PublicStatusPage'
+import { HomepageLoginRequired, PublicStatusPage, PublicStatusView } from './PublicStatusPage'
 
 function renderView(status: PublicStatus): string {
   return renderToStaticMarkup(<ThemeProvider><I18nProvider><PublicStatusView status={status} /></I18nProvider></ThemeProvider>)
@@ -16,7 +16,7 @@ describe('PublicStatusView', () => {
   it('keeps the management link available while public status loads', () => {
     const markup = renderToStaticMarkup(<ThemeProvider><I18nProvider><PublicStatusPage /></I18nProvider></ThemeProvider>)
 
-    expect(markup).toContain('Loading public status')
+    expect(markup).toContain('Loading status')
     expect(markup).toContain('<a href="/admin">Management</a>')
   })
 
@@ -38,20 +38,22 @@ describe('PublicStatusView', () => {
     expect(markup).not.toContain('private-kernel')
   })
 
-  it('keeps a disabled page free of node content', () => {
+  it('offers a safe sign-in entry for legacy restricted responses without node content', () => {
     const markup = renderView({
       page: { enabled: false, title: 'Private fleet', description: '' },
       nodes: [],
     })
-    expect(markup).toContain('not enabled')
+    expect(markup).toContain('Sign in to view this site')
+    expect(markup).toContain('href="/admin?next=home"')
     expect(markup).toContain('<a href="/admin">Management</a>')
-    expect(markup).not.toContain('Published nodes')
+    expect(markup).not.toContain('public-grid')
+    expect(markup).not.toContain('Private fleet')
   })
 
   it('keeps the management link available for an empty public fleet', () => {
     const markup = renderView({ page: { enabled: true, title: 'Fleet health', description: '' }, nodes: [] })
 
-    expect(markup).toContain('No nodes are published')
+    expect(markup).toContain('No nodes to display')
     expect(markup).toContain('<a href="/admin">Management</a>')
   })
 
@@ -60,7 +62,15 @@ describe('PublicStatusView', () => {
     const markup = renderView({ page: { enabled: false, title: 'Fleet health', description: '' }, nodes: [] })
 
     expect(markup).toContain('<a href="/admin">管理后台</a>')
-    expect(markup).toContain('此公开状态页尚未启用')
+    expect(markup).toContain('登录后查看站点')
+    expect(markup).toContain('登录查看')
+  })
+
+  it('provides a neutral login-required state and fixed return-home destination', () => {
+    const markup = renderToStaticMarkup(<ThemeProvider><I18nProvider><HomepageLoginRequired /></I18nProvider></ThemeProvider>)
+    expect(markup).toContain('Sign in to view this site')
+    expect(markup).toContain('<a class="button-link primary" href="/admin?next=home">Sign in to view</a>')
+    expect(markup).not.toMatch(/role="alert"|not enabled|public view|public-grid/)
   })
 
   it('never presents retained offline sample values as current resource bars or network speed', () => {

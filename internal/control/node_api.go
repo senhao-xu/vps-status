@@ -235,27 +235,28 @@ func (api *adminAPI) revokeNodeCredentials(response http.ResponseWriter, request
 }
 
 type nodeDTO struct {
-	ID             string           `json:"id"`
-	Name           string           `json:"name"`
-	Group          string           `json:"group"`
-	Hidden         bool             `json:"hidden"`
-	Hostname       string           `json:"hostname"`
-	OS             string           `json:"os"`
-	Kernel         string           `json:"kernel"`
-	Architecture   string           `json:"architecture"`
-	Virtualization string           `json:"virtualization"`
-	CreatedAt      time.Time        `json:"created_at"`
-	UpdatedAt      time.Time        `json:"updated_at"`
-	Connected      bool             `json:"connected"`
-	Online         bool             `json:"online"`
-	LastReportAt   *time.Time       `json:"last_report_at,omitempty"`
-	Report         *protocol.Report `json:"report,omitempty"`
+	ID              string           `json:"id"`
+	Name            string           `json:"name"`
+	Group           string           `json:"group"`
+	Hidden          bool             `json:"hidden"`
+	HomepageVisible bool             `json:"homepage_visible"`
+	Hostname        string           `json:"hostname"`
+	OS              string           `json:"os"`
+	Kernel          string           `json:"kernel"`
+	Architecture    string           `json:"architecture"`
+	Virtualization  string           `json:"virtualization"`
+	CreatedAt       time.Time        `json:"created_at"`
+	UpdatedAt       time.Time        `json:"updated_at"`
+	Connected       bool             `json:"connected"`
+	Online          bool             `json:"online"`
+	LastReportAt    *time.Time       `json:"last_report_at,omitempty"`
+	Report          *protocol.Report `json:"report,omitempty"`
 }
 
 func (api *adminAPI) nodeDTO(node controlstore.Node) nodeDTO {
 	snapshot := api.config.Live.Snapshot(node.ID)
 	result := nodeDTO{
-		ID: node.ID, Name: node.Name, Group: node.Group, Hidden: node.Hidden,
+		ID: node.ID, Name: node.Name, Group: node.Group, Hidden: node.Hidden, HomepageVisible: node.HomepageVisible,
 		Hostname: node.Facts.Hostname, OS: node.Facts.OS, Kernel: node.Facts.Kernel,
 		Architecture: node.Facts.Architecture, Virtualization: node.Facts.Virtualization,
 		CreatedAt: node.CreatedAt, UpdatedAt: node.UpdatedAt,
@@ -297,48 +298,33 @@ func (api *adminAPI) node(response http.ResponseWriter, request *http.Request, _
 }
 
 type updateNodeRequest struct {
-	Name   *string `json:"name"`
-	Group  *string `json:"group"`
-	Hidden *bool   `json:"hidden"`
+	Name            *string `json:"name"`
+	Group           *string `json:"group"`
+	Hidden          *bool   `json:"hidden"`
+	HomepageVisible *bool   `json:"homepage_visible"`
 }
 
 func (api *adminAPI) updateNode(response http.ResponseWriter, request *http.Request, _ authenticatedRequest) {
-	current, err := api.config.Store.NodeByID(request.Context(), request.PathValue("id"))
-	if errors.Is(err, controlstore.ErrNotFound) {
-		writeError(response, http.StatusNotFound, "not_found", "The node was not found.")
-		return
-	}
-	if err != nil {
-		writeInternal(response)
-		return
-	}
 	var input updateNodeRequest
 	if !decodeJSON(response, request, &input) {
 		return
 	}
-	if input.Name != nil {
-		current.Name = strings.TrimSpace(*input.Name)
-	}
-	if input.Group != nil {
-		current.Group = strings.TrimSpace(*input.Group)
-	}
-	if input.Hidden != nil {
-		current.Hidden = *input.Hidden
-	}
-	if current.Name == "" || len(current.Name) > 128 || len(current.Group) > 128 {
-		writeError(response, http.StatusBadRequest, "invalid_input", "The node name or group is invalid.")
-		return
-	}
-	now := api.now()
-	if err := api.config.Store.UpdateNode(request.Context(), current.ID, current.Name, current.Group, current.Hidden, now); err != nil {
-		if errors.Is(err, controlstore.ErrNotFound) {
+	current, err := api.config.Store.PatchNode(request.Context(), request.PathValue("id"), controlstore.NodePatch{
+		Name: input.Name, Group: input.Group, Hidden: input.Hidden, HomepageVisible: input.HomepageVisible,
+	}, api.now())
+	if err != nil {
+		switch {
+		case errors.Is(err, controlstore.ErrNotFound):
 			writeError(response, http.StatusNotFound, "not_found", "The node was not found.")
-		} else {
+		case errors.Is(err, controlstore.ErrInvalidNodeConfiguration):
+			writeError(response, http.StatusBadRequest, "invalid_input", "The node name or group is invalid.")
+		case errors.Is(err, controlstore.ErrHomepageNodeLimit):
+			writeError(response, http.StatusConflict, "homepage_node_limit", "The homepage node limit has been reached.")
+		default:
 			writeInternal(response)
 		}
 		return
 	}
-	current.UpdatedAt = now.UTC()
 	if api.config.Alerts != nil {
 		api.config.Alerts.Refresh()
 	}

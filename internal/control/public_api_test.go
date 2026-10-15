@@ -3,6 +3,7 @@ package control
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -70,9 +71,10 @@ func TestPublicStatusUsesExplicitAllowlistAndLeaksNoPrivateFields(t *testing.T) 
 		t.Fatal("live report was not accepted")
 	}
 
+	enrollHomepageTestNode(t, store, "unlisted-node", now)
 	private := performJSON(t, handler, http.MethodGet, "/api/v1/public/status", "", nil, "")
-	if private.Code != http.StatusOK || strings.Contains(private.Body.String(), "Singapore edge") {
-		t.Fatalf("private default public status = %d %s", private.Code, private.Body.String())
+	if private.Code != http.StatusOK || !strings.Contains(private.Body.String(), "Singapore edge") {
+		t.Fatalf("default homepage status = %d %s", private.Code, private.Body.String())
 	}
 	update := performJSON(t, handler, http.MethodPut, "/api/v1/admin/public-page",
 		`{"enabled":true,"title":"Fleet status","description":"Public health","node_ids":["private-node-id"]}`,
@@ -85,7 +87,37 @@ func TestPublicStatusUsesExplicitAllowlistAndLeaksNoPrivateFields(t *testing.T) 
 	if public.Code != http.StatusOK {
 		t.Fatalf("public status = %d %s", public.Code, public.Body.String())
 	}
-	body := public.Body.String()
+	assertSafeHomepageResponse(t, public)
+
+	// Requiring a login changes access, never the page DTO or selected nodes.
+	restricted := performJSON(t, handler, http.MethodPut, "/api/v1/admin/public-page",
+		`{"enabled":false,"title":"Fleet status","description":"Public health"}`, []*http.Cookie{cookie}, auth.CSRF)
+	if restricted.Code != http.StatusOK {
+		t.Fatalf("restrict homepage = %d %s", restricted.Code, restricted.Body.String())
+	}
+	for _, cookies := range [][]*http.Cookie{nil, {{Name: sessionCookieName, Value: "invalid-session"}}} {
+		denied := performJSON(t, handler, http.MethodGet, "/api/v1/public/status", "", cookies, "")
+		if denied.Code != http.StatusUnauthorized || strings.Contains(denied.Body.String(), "Singapore edge") || strings.Contains(denied.Body.String(), "Fleet status") {
+			t.Fatalf("restricted anonymous status = %d %s", denied.Code, denied.Body.String())
+		}
+	}
+	authenticated := performJSON(t, handler, http.MethodGet, "/api/v1/public/status", "", []*http.Cookie{cookie}, "")
+	if authenticated.Code != http.StatusOK || authenticated.Body.String() != public.Body.String() {
+		t.Fatalf("authenticated homepage changed projection = %d %s", authenticated.Code, authenticated.Body.String())
+	}
+	assertSafeHomepageResponse(t, authenticated)
+	logout := performJSON(t, handler, http.MethodPost, "/api/v1/admin/logout", "", []*http.Cookie{cookie}, auth.CSRF)
+	if logout.Code != http.StatusNoContent {
+		t.Fatalf("logout = %d %s", logout.Code, logout.Body.String())
+	}
+	if revoked := performJSON(t, handler, http.MethodGet, "/api/v1/public/status", "", []*http.Cookie{cookie}, ""); revoked.Code != http.StatusUnauthorized {
+		t.Fatalf("revoked homepage session = %d %s", revoked.Code, revoked.Body.String())
+	}
+}
+
+func assertSafeHomepageResponse(t *testing.T, response *httptest.ResponseRecorder) {
+	t.Helper()
+	body := response.Body.String()
 	for _, required := range []string{
 		"Fleet status", "Singapore edge", `"group":"SG"`, `"online":true`, `"cpu_usage_percent":25`,
 		`"month_receive_bytes":null`, `"month_transmit_bytes":null`,
@@ -95,16 +127,16 @@ func TestPublicStatusUsesExplicitAllowlistAndLeaksNoPrivateFields(t *testing.T) 
 		}
 	}
 	for _, forbidden := range []string{
-		"private-node-id", "real-hostname-secret", "PrivateOS", "private-kernel", "arm64", "203.0.113.99", credential,
+		"unlisted-node", "private-node-id", "real-hostname-secret", "PrivateOS", "private-kernel", "arm64", "203.0.113.99", "credential-that-must-never-be-public",
 		`"hostname"`, `"ip"`, `"os"`, `"kernel"`, `"architecture"`, `"virtualization"`,
-		`"credential"`, `"history"`, `"points"`, `"bucket_start"`, `"receive_bytes_total"`,
+		`"homepage_visible"`, `"hidden"`, `"credential"`, `"history"`, `"points"`, `"bucket_start"`, `"receive_bytes_total"`,
 	} {
 		if strings.Contains(body, forbidden) {
 			t.Fatalf("public response leaked %q: %s", forbidden, body)
 		}
 	}
 	var decoded map[string]json.RawMessage
-	if err := json.Unmarshal(public.Body.Bytes(), &decoded); err != nil {
+	if err := json.Unmarshal(response.Body.Bytes(), &decoded); err != nil {
 		t.Fatal(err)
 	}
 	if len(decoded) != 2 || decoded["page"] == nil || decoded["nodes"] == nil {

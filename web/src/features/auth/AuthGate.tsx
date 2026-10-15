@@ -6,6 +6,7 @@ import { PreferenceControls } from '../../components/PreferenceControls'
 import { useI18n } from '../../i18n'
 
 interface AuthGateProps {
+  returnHome?: boolean
   children: (
     session: SessionResponse,
     refreshSession: () => Promise<void>,
@@ -20,9 +21,12 @@ type AuthState =
   | { status: 'login'; mfaRequired: boolean; error: string; notice?: 'passwordChanged' }
   | { status: 'authenticated'; session: SessionResponse }
 
-export function AuthGate({ children }: AuthGateProps) {
+export function AuthGate({ children, returnHome = false }: AuthGateProps) {
   const { t } = useI18n()
   const [state, setState] = useState<AuthState>({ status: 'checking' })
+  useEffect(() => {
+    if (state.status === 'authenticated' && returnHome) window.location.replace('/')
+  }, [state.status, returnHome])
   const translation = useRef(t)
   useEffect(() => { translation.current = t }, [t])
 
@@ -37,13 +41,14 @@ export function AuthGate({ children }: AuthGateProps) {
     const controller = new AbortController()
     apiRequest('/api/v1/admin/setup', decodeSetupStatus, { signal: controller.signal })
       .then(async ({ configured }) => {
+        if (controller.signal.aborted) return
         if (!configured) {
           setState({ status: 'setup' })
           return
         }
         try {
           const session = await apiRequest('/api/v1/admin/session', decodeSessionResponse, { signal: controller.signal })
-          setState({ status: 'authenticated', session })
+          if (!controller.signal.aborted) setState({ status: 'authenticated', session })
         } catch (error) {
           if (!controller.signal.aborted) setState({
             status: 'login',
@@ -68,7 +73,10 @@ export function AuthGate({ children }: AuthGateProps) {
   }, [])
 
   if (state.status === 'checking') return <main className="auth-shell"><PreferenceControls /><p role="status">{t('checkingSession')}</p></main>
-  if (state.status === 'authenticated') return <>{children(state.session, refreshSession, logout, onUnauthorized)}</>
+  if (state.status === 'authenticated') {
+    if (returnHome) return <main className="auth-shell"><p role="status">{t('returningHome')}</p></main>
+    return <>{children(state.session, refreshSession, logout, onUnauthorized)}</>
+  }
   if (state.status === 'setup') {
     return <SetupForm onAuthenticated={(session) => setState({ status: 'authenticated', session })} />
   }
@@ -148,7 +156,6 @@ function LoginForm({ state, onState }: {
         <label>{t('password')}<input name="password" type="password" autoComplete="current-password" /></label>
         {state.mfaRequired && <label>{t('mfaOrRecoveryCode')}<input name="mfa_code" inputMode="numeric" autoComplete="one-time-code" required autoFocus /></label>}
         <button className="primary" disabled={pending}>{pending ? t('signingIn') : t('signIn')}</button>
-        <a href="/">{t('openPublicStatus')}</a>
       </form>
     </main>
   )

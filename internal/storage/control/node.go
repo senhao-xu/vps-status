@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -152,10 +153,34 @@ func (s *Store) ConsumeEnrollment(ctx context.Context, digest [32]byte, nodeID, 
 	if rows != 1 {
 		return Node{}, ErrEnrollmentConsumed
 	}
+	// Full display capacity must not prevent a node from registering. The
+	// administrator can free capacity and enable it later in node settings.
+	publication, err := tx.ExecContext(ctx, `INSERT INTO public_nodes(node_id,published_at)
+		SELECT ?,? WHERE (SELECT COUNT(*) FROM public_nodes) < ?`, nodeID, unix(now), MaxPublicNodes)
+	if err != nil {
+		return Node{}, fmt.Errorf("add enrolled node to homepage: %w", err)
+	}
+	published, err := publication.RowsAffected()
+	if err != nil {
+		return Node{}, fmt.Errorf("read enrolled homepage membership: %w", err)
+	}
+	assignments, err := tx.ExecContext(ctx, `INSERT INTO probe_assignments(task_id,node_id,created_at) SELECT id,?,? FROM probe_tasks WHERE auto_join=1`, nodeID, unix(now))
+	if err != nil {
+		return Node{}, fmt.Errorf("assign enrolled node probes: %w", err)
+	}
+	assigned, err := assignments.RowsAffected()
+	if err != nil {
+		return Node{}, fmt.Errorf("read enrolled probe assignment count: %w", err)
+	}
+	if assigned > 0 {
+		if _, err := bumpProbeVersion(ctx, tx); err != nil {
+			return Node{}, err
+		}
+	}
 	if err := tx.Commit(); err != nil {
 		return Node{}, fmt.Errorf("commit enrollment: %w", err)
 	}
-	return Node{ID: nodeID, Name: nodeName, CreatedAt: now.UTC(), UpdatedAt: now.UTC()}, nil
+	return Node{ID: nodeID, Name: nodeName, HomepageVisible: published > 0, CreatedAt: now.UTC(), UpdatedAt: now.UTC()}, nil
 }
 
 // AuthenticateNodeCredential returns the active node and credential identity.
@@ -164,15 +189,15 @@ func (s *Store) AuthenticateNodeCredential(ctx context.Context, digest [32]byte)
 	var credential NodeCredential
 	var rawDigest []byte
 	var nodeCreated, nodeUpdated, credentialCreated int64
-	var hidden int
+	var hidden, homepageVisible int
 	err := s.db.QueryRowContext(ctx, `
 		SELECT n.id, n.name, n.group_name, n.hidden, n.hostname, n.os, n.kernel, n.architecture, n.virtualization,
-		       n.created_at, n.updated_at,
+		       n.created_at, n.updated_at, EXISTS(SELECT 1 FROM public_nodes p WHERE p.node_id=n.id),
 		       c.id, c.node_id, c.credential_digest, c.created_at
 		FROM node_credentials c JOIN nodes n ON n.id = c.node_id
 		WHERE c.credential_digest = ? AND c.revoked_at IS NULL AND n.deleted_at IS NULL`, digest[:]).Scan(
 		&node.ID, &node.Name, &node.Group, &hidden, &node.Facts.Hostname, &node.Facts.OS, &node.Facts.Kernel,
-		&node.Facts.Architecture, &node.Facts.Virtualization, &nodeCreated, &nodeUpdated,
+		&node.Facts.Architecture, &node.Facts.Virtualization, &nodeCreated, &nodeUpdated, &homepageVisible,
 		&credential.ID, &credential.NodeID, &rawDigest, &credentialCreated)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Node{}, NodeCredential{}, ErrCredentialRevoked
@@ -184,7 +209,7 @@ func (s *Store) AuthenticateNodeCredential(ctx context.Context, digest [32]byte)
 		return Node{}, NodeCredential{}, errors.New("invalid node credential digest length in database")
 	}
 	copy(credential.Digest[:], rawDigest)
-	node.Hidden = hidden != 0
+	node.Hidden, node.HomepageVisible = hidden != 0, homepageVisible != 0
 	node.CreatedAt, node.UpdatedAt = fromUnix(nodeCreated), fromUnix(nodeUpdated)
 	credential.CreatedAt = fromUnix(credentialCreated)
 	return node, credential, nil
@@ -193,7 +218,8 @@ func (s *Store) AuthenticateNodeCredential(ctx context.Context, digest [32]byte)
 // ListNodes returns active low-growth node metadata in stable display order.
 func (s *Store) ListNodes(ctx context.Context) ([]Node, error) {
 	rows, err := s.db.QueryContext(ctx, `
-		SELECT id, name, group_name, hidden, hostname, os, kernel, architecture, virtualization, created_at, updated_at
+		SELECT id, name, group_name, hidden, hostname, os, kernel, architecture, virtualization, created_at, updated_at,
+		       EXISTS(SELECT 1 FROM public_nodes p WHERE p.node_id=nodes.id)
 		FROM nodes WHERE deleted_at IS NULL ORDER BY group_name, name, id`)
 	if err != nil {
 		return nil, fmt.Errorf("list nodes: %w", err)
@@ -216,7 +242,8 @@ func (s *Store) ListNodes(ctx context.Context) ([]Node, error) {
 // NodeByID returns one active node's low-growth metadata.
 func (s *Store) NodeByID(ctx context.Context, nodeID string) (Node, error) {
 	node, err := scanNode(s.db.QueryRowContext(ctx, `
-		SELECT id, name, group_name, hidden, hostname, os, kernel, architecture, virtualization, created_at, updated_at
+		SELECT id, name, group_name, hidden, hostname, os, kernel, architecture, virtualization, created_at, updated_at,
+		       EXISTS(SELECT 1 FROM public_nodes p WHERE p.node_id=nodes.id)
 		FROM nodes WHERE id = ? AND deleted_at IS NULL`, nodeID))
 	if errors.Is(err, sql.ErrNoRows) {
 		return Node{}, ErrNotFound
@@ -229,54 +256,97 @@ func (s *Store) NodeByID(ctx context.Context, nodeID string) (Node, error) {
 
 func scanNode(row rowScanner) (Node, error) {
 	var node Node
-	var hidden int
+	var hidden, homepageVisible int
 	var createdAt, updatedAt int64
 	err := row.Scan(&node.ID, &node.Name, &node.Group, &hidden, &node.Facts.Hostname, &node.Facts.OS, &node.Facts.Kernel,
-		&node.Facts.Architecture, &node.Facts.Virtualization, &createdAt, &updatedAt)
+		&node.Facts.Architecture, &node.Facts.Virtualization, &createdAt, &updatedAt, &homepageVisible)
 	if err != nil {
 		return Node{}, err
 	}
-	node.Hidden = hidden != 0
+	node.Hidden, node.HomepageVisible = hidden != 0, homepageVisible != 0
 	node.CreatedAt, node.UpdatedAt = fromUnix(createdAt), fromUnix(updatedAt)
 	return node, nil
 }
 
-// UpdateNode changes only administrator-owned display metadata.
+// NodePatch merges only supplied administrator-owned settings.
+type NodePatch struct {
+	Name            *string
+	Group           *string
+	Hidden          *bool
+	HomepageVisible *bool
+}
+
+// UpdateNode keeps the legacy metadata operation without replacing membership.
 func (s *Store) UpdateNode(ctx context.Context, nodeID, name, group string, hidden bool, now time.Time) error {
+	_, err := s.PatchNode(ctx, nodeID, NodePatch{Name: &name, Group: &group, Hidden: &hidden}, now)
+	return err
+}
+
+// PatchNode reads, validates and merges metadata and display membership in one
+// transaction. Omitted fields cannot restore a stale handler snapshot.
+func (s *Store) PatchNode(ctx context.Context, nodeID string, patch NodePatch, now time.Time) (Node, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("begin node metadata update: %w", err)
+		return Node{}, fmt.Errorf("begin node metadata update: %w", err)
 	}
 	defer tx.Rollback()
-	var oldGroup string
-	if err := tx.QueryRowContext(ctx, `SELECT group_name FROM nodes WHERE id=? AND deleted_at IS NULL`, nodeID).Scan(&oldGroup); errors.Is(err, sql.ErrNoRows) {
-		return ErrNotFound
+	current, err := scanNode(tx.QueryRowContext(ctx, `SELECT id,name,group_name,hidden,hostname,os,kernel,architecture,virtualization,created_at,updated_at,
+		EXISTS(SELECT 1 FROM public_nodes p WHERE p.node_id=nodes.id)
+		FROM nodes WHERE id=? AND deleted_at IS NULL`, nodeID))
+	if errors.Is(err, sql.ErrNoRows) {
+		return Node{}, ErrNotFound
 	} else if err != nil {
-		return fmt.Errorf("read node metadata before update: %w", err)
+		return Node{}, fmt.Errorf("read node metadata before update: %w", err)
 	}
-	result, err := tx.ExecContext(ctx, `
-		UPDATE nodes SET name = ?, group_name = ?, hidden = ?, updated_at = ?
-		WHERE id = ? AND deleted_at IS NULL`, name, group, boolInt(hidden), unix(now), nodeID)
-	if err != nil {
-		return fmt.Errorf("update node metadata: %w", err)
+	oldGroup := current.Group
+	if patch.Name != nil {
+		current.Name = strings.TrimSpace(*patch.Name)
 	}
-	if err := requireOneRow(result, "update node metadata"); err != nil {
-		return err
+	if patch.Group != nil {
+		current.Group = strings.TrimSpace(*patch.Group)
 	}
-	if oldGroup != group {
+	if patch.Hidden != nil {
+		current.Hidden = *patch.Hidden
+	}
+	if current.Name == "" || len(current.Name) > 128 || len(current.Group) > 128 {
+		return Node{}, ErrInvalidNodeConfiguration
+	}
+	if patch.HomepageVisible != nil && *patch.HomepageVisible != current.HomepageVisible {
+		if *patch.HomepageVisible {
+			var count int
+			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM public_nodes`).Scan(&count); err != nil {
+				return Node{}, fmt.Errorf("count homepage nodes: %w", err)
+			}
+			if count >= MaxPublicNodes {
+				return Node{}, ErrHomepageNodeLimit
+			}
+			if _, err := tx.ExecContext(ctx, `INSERT INTO public_nodes(node_id,published_at) VALUES(?,?)`, nodeID, unix(now)); err != nil {
+				return Node{}, fmt.Errorf("add node to homepage: %w", err)
+			}
+		} else if _, err := tx.ExecContext(ctx, `DELETE FROM public_nodes WHERE node_id=?`, nodeID); err != nil {
+			return Node{}, fmt.Errorf("remove node from homepage: %w", err)
+		}
+		current.HomepageVisible = *patch.HomepageVisible
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE nodes SET name=?,group_name=?,hidden=?,updated_at=? WHERE id=?`,
+		current.Name, current.Group, boolInt(current.Hidden), unix(now), nodeID); err != nil {
+		return Node{}, fmt.Errorf("update node metadata: %w", err)
+	}
+	if oldGroup != current.Group {
 		if _, err := tx.ExecContext(ctx, `DELETE FROM notification_deliveries WHERE node_id=? AND status IN ('pending','retry') AND rule_id IN (
-			SELECT id FROM alert_rules WHERE scope_kind='group' AND scope_value<>?)`, nodeID, group); err != nil {
-			return fmt.Errorf("reset regrouped node notification deliveries: %w", err)
+			SELECT id FROM alert_rules WHERE scope_kind='group' AND scope_value<>?)`, nodeID, current.Group); err != nil {
+			return Node{}, fmt.Errorf("reset regrouped node notification deliveries: %w", err)
 		}
 		if _, err := tx.ExecContext(ctx, `DELETE FROM alert_states WHERE node_id=? AND rule_id IN (
-			SELECT id FROM alert_rules WHERE scope_kind='group' AND scope_value<>?)`, nodeID, group); err != nil {
-			return fmt.Errorf("reset regrouped node alert states: %w", err)
+			SELECT id FROM alert_rules WHERE scope_kind='group' AND scope_value<>?)`, nodeID, current.Group); err != nil {
+			return Node{}, fmt.Errorf("reset regrouped node alert states: %w", err)
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("commit node metadata update: %w", err)
+		return Node{}, fmt.Errorf("commit node metadata update: %w", err)
 	}
-	return nil
+	current.UpdatedAt = now.UTC()
+	return current, nil
 }
 
 // UpdateNodeFacts changes bounded low-frequency identity facts from hello. It

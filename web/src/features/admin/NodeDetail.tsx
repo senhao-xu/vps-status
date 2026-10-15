@@ -7,20 +7,23 @@ import { ResourceMeters, StatusBadge } from '../../components/NodeMetrics'
 import { formatBytes, formatDuration, formatPercent, formatRate, formatTime } from '../../format'
 import { useI18n } from '../../i18n'
 import { type Mutate, type NodeTelemetryState } from './NodesPanel'
+import { SettingsFeedback } from './SettingsFeedback'
+import { useAdminAction } from './useAdminAction'
 
-export function NodeDetail({ node, telemetry, mutate, setOneTime, onUnauthorized }: {
-  node: Node; telemetry: NodeTelemetryState; mutate: Mutate; setOneTime: (value: string) => void; onUnauthorized: () => void
+export function NodeDetail({ node, telemetry, mutate, setOneTime, onUnauthorized, onSaved }: {
+  node: Node; telemetry: NodeTelemetryState; mutate: Mutate; setOneTime: (value: string) => void; onUnauthorized: () => void; onSaved: () => void
 }) {
   const { language, t } = useI18n()
+  const settings = useAdminAction(onUnauthorized)
   const month = telemetry.status === 'success'
     ? telemetry.traffic.find((row) => row.period === new Date().toISOString().slice(0, 7))
     : undefined
   const update = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     const form = new FormData(event.currentTarget)
-    return mutate(() => apiMutation(`/api/v1/admin/nodes/${encodeURIComponent(node.id)}`, {
-      method: 'PATCH', body: { name: form.get('name'), group: form.get('group'), hidden: form.get('hidden') === 'on' },
-    }), t('nodeUpdated'))
+    return settings.run((signal) => apiMutation(`/api/v1/admin/nodes/${encodeURIComponent(node.id)}`, {
+      method: 'PATCH', signal, body: { name: form.get('name'), group: form.get('group'), hidden: form.get('hidden') === 'on', homepage_visible: form.get('homepage_visible') === 'on' },
+    }), onSaved, t('nodeUpdated'))
   }
   const rotate = async () => {
     try {
@@ -59,11 +62,13 @@ export function NodeDetail({ node, telemetry, mutate, setOneTime, onUnauthorized
           <MetricChart title={t('networkReceiveHistory')} points={telemetry.history.map((point) => ({ at: point.bucketStart, value: point.receiveRateAverage }))} formatValue={(value) => formatRate(value, language)} />
         </div>
       )}
-      <details className="node-settings"><summary>{t('nodeSettings')}</summary><form className="form-grid compact" onSubmit={(event) => void update(event)}>
+      <details className="node-settings"><summary>{t('nodeSettings')}</summary><SettingsFeedback {...settings} /><form key={JSON.stringify([node.name, node.group, node.hidden, node.homepageVisible])} onSubmit={(event) => void update(event)} aria-busy={settings.pending}><fieldset className="form-grid compact" disabled={settings.pending}>
         <label>{t('displayName')}<input name="name" defaultValue={node.name} maxLength={128} required /></label>
         <label>{t('groupRegion')}<input name="group" defaultValue={node.group} maxLength={128} /></label>
+        <label className="check"><input name="homepage_visible" type="checkbox" defaultChecked={node.homepageVisible} /> {t('homepageDisplay')}</label>
         <label className="check"><input name="hidden" type="checkbox" defaultChecked={node.hidden} /> {t('hideAdminOverview')}</label>
-        <button>{t('saveNode')}</button>
+        <button>{t(settings.pending ? 'savingSettings' : 'saveNode')}</button>
+      </fieldset>
       </form>
       <div className="button-row">
         <button onClick={() => void rotate()}>{t('rotateCredential')}</button>

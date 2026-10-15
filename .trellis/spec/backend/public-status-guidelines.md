@@ -1,91 +1,88 @@
-# Public Status Boundary
+# Homepage and Public Status Boundary
 
 ## 1. Scope / Trigger
 
-Use this contract for public-page configuration, node publication, any
-unauthenticated status endpoint, and frontend public status rendering. It
-prevents administrator node models, host identity, credentials, and retained
-history from crossing the public boundary by accident.
+Use this contract for site settings, node homepage visibility, status access,
+and the safe status projection. The homepage is a core feature; its access
+policy is separate from the data fields allowed in its response.
 
 ## 2. Signatures
 
-Storage owns:
-
-```go
-func (*Store) PublicPageConfig(context.Context) (PublicPage, error)
-func (*Store) UpdatePublicPage(context.Context, PublicPage, time.Time) error
-func (*Store) ListPublishedNodes(context.Context) ([]Node, error)
-```
-
-HTTP owns:
-
 ```text
 GET /api/v1/admin/public-page
-PUT /api/v1/admin/public-page
-GET /api/v1/public/status
+PUT /api/v1/admin/public-page  {enabled, title, description, node_ids?}
+GET /api/v1/admin/nodes       node.homepage_visible: boolean
+PATCH /api/v1/admin/nodes/{id} {name?, group?, hidden?, homepage_visible?}
+GET /api/v1/public/status    {page, nodes}
 ```
 
-Control schema v7 owns `public_page(singleton_id=1, enabled, title,
-description, updated_at)` and `public_nodes(node_id, published_at)`.
+Storage remains public_page(singleton_id=1, enabled, title, description,
+updated_at) and public_nodes(node_id, published_at), introduced in schema7.
+Schema11 enables only rows whose updated_at=0; saved access choices and all
+existing memberships stay intact. New installations have an open homepage.
 
 ## 3. Contracts
 
-- Nodes are private by default. Publication requires an active node ID in the
-  complete administrator-supplied `node_ids` allowlist.
-- `PUT` is authenticated and CSRF-protected. It replaces presentation fields
-  and the allowlist in one `control.db` transaction.
-- The unauthenticated DTO is a separate type, never `nodeDTO` with fields
-  removed. Top-level fields are exactly `page` and `nodes`.
-- Public node fields are exactly display `name`, `group`, `online`, current
-  uptime/CPU/memory/disk/RX/TX, and current UTC-month RX/TX totals.
-- Offline/unavailable/degraded values are JSON `null`. Public status never
-  fails merely because `telemetry.db` is unavailable.
-- The public response never contains stable internal node IDs, hostname, IP,
-  OS, kernel, architecture, virtualization, credential material, probe
-  targets, notification data, or history points.
+- enabled=true permits anonymous status access; enabled=false requires an
+  existing administrator session through api.auth(false,...). Authenticated
+  responses use the same strict safe DTO and effective page.enabled=true.
+- New enrollment adds public_nodes membership within the node/credential/
+  auto-join transaction. At MaxPublicNodes=1000, enrollment still succeeds
+  with homepage_visible=false. Existing node membership is never expanded by
+  the migration. The admin hidden flag is independent of homepage visibility.
+- Site PUT is authenticated and CSRF-protected. Omitted node_ids preserves
+  current membership inside the transaction; an explicit list is a legacy
+  complete replacement, including [] to clear it. The site UI omits node_ids.
+- Partial node PATCH merges metadata and homepage visibility against committed
+  state in one transaction; do not read/merge/write a stale handler snapshot.
+- The status DTO is a separate type, never nodeDTO with fields removed.
+  Top-level fields are exactly page and nodes. Page fields remain exactly
+  enabled, title, description. Status access never adds administrator fields.
+- Node fields are exactly display name/group/online, current uptime/CPU/
+  memory/disk/RX/TX, and current UTC-month RX/TX totals. Missing/offline values
+  are null. Telemetry unavailability affects only month totals.
+- Status never includes stable node IDs, hostname, IP, OS, kernel, architecture,
+  virtualization, credentials, probe targets, notifications, or history.
 
 ## 4. Validation & Error Matrix
 
 | Condition | Result |
 |---|---|
-| Empty/overlong title, description over 512 bytes, duplicate/missing/deleted node | `400 invalid_input`; transaction unchanged |
-| Admin mutation without session | `401 unauthorized` |
-| Admin mutation without matching CSRF | `403 csrf_invalid` |
-| Public page disabled | `200` with page settings and an empty node array |
-| Telemetry unavailable | Live public fields continue; month totals are `null` |
-| Node deletion | `public_nodes` row is explicitly removed in the node-deletion transaction (nodes are soft-deleted, so an FK cascade alone is insufficient) |
+| Empty/overlong title, description over512bytes, duplicate/missing/deleted node | 400 invalid_input; unchanged transaction |
+| Admin mutation or restricted status without a valid session | 401 unauthorized |
+| Admin mutation without matching CSRF | 403 csrf_invalid |
+| Manually show a node beyond the1000node cap | 409 homepage_node_limit; node metadata and membership unchanged |
+| New enrollment at homepage cap | Registration succeeds, homepage_visible=false |
+| Open homepage | 200 safe status DTO |
+| Restricted homepage with valid administrator | 200 same safe DTO, effective enabled=true |
+| Telemetry unavailable | Live fields continue; month totals null |
+| Node soft deletion | Explicitly remove membership in deletion transaction |
 
 ## 5. Good / Base / Bad Cases
 
-- Good: an administrator explicitly publishes two nodes and only their display
-  aliases/current allowlisted metrics appear publicly.
-- Base: public page is fresh/disabled and returns no nodes.
-- Bad: serializing `nodeDTO`, then deleting `hostname` in the browser. A later
-  administrator field addition would silently become public.
+- Good: save site title without sending node_ids; a concurrently enrolled node
+  keeps its default homepage membership.
+- Base: fresh installation serves an open empty homepage, then new nodes appear.
+- Bad: reuse nodeDTO for a logged-in homepage or infer visibility from hidden.
+  Both make the read-only projection depend on unrelated administrator state.
 
 ## 6. Tests Required
 
-- Fresh schema proves `public_nodes` is empty and the page is disabled.
-- Replacement is atomic; missing/duplicate nodes leave the old config intact.
-- v6→v7 backup contains neither v7 table.
-- API tests use sentinel hostname, OS, kernel, architecture/IP-like fact and
-  credential values and assert all are absent, along with `history`, `points`,
-  `bucket_start`, and cumulative report counters.
-- Frontend decoder rejects every unknown/forbidden public key; rendering tests
-  assert online state has text and missing values do not become measured zero.
+- Schema10-to11 backup stays schema10 and preserves explicit access choices,
+  old memberships and node metadata. Untouched settings become enabled.
+- Enrollment, homepage cap, partial node updates, legacy full list replacement,
+  omitted membership and concurrent enrollment/visibility saves are atomic.
+- Restricted status tests cover absent/invalid/expired/revoked/valid sessions.
+- Both open and authenticated status test sentinel private fields and exact keys;
+  assert no IDs, host facts, credentials, history, points, bucket_start or raw
+  cumulative report counters, even with unavailable telemetry.
+- Frontend strict decoder rejects unknown fields. Login uses fixed
+  /admin?next=home and returns to /; no arbitrary redirect destination.
 
 ## 7. Wrong vs Correct
 
-### Wrong
+Wrong: read node or node_ids in a handler, wait for a request body, then replace
+storage values from that snapshot. Enrollment and another edit can be lost.
 
-```go
-writeJSON(w, http.StatusOK, api.nodeDTO(node)) // administrator model
-```
-
-### Correct
-
-```go
-dto := publicNodeDTO{Name: node.Name, Group: node.Group}
-projectPublicReport(&dto, *snapshot.Report) // explicit allowlist only
-writeJSON(w, http.StatusOK, dto)
-```
+Correct: pass optional fields to storage, merge committed values inside its
+transaction, and build status exclusively through the explicit public DTO.

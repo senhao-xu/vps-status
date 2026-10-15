@@ -22,11 +22,14 @@ func (s *Store) CreateProbeTask(ctx context.Context, task ProbeTask, nodeIDs []s
 		return 0, fmt.Errorf("begin probe task creation: %w", err)
 	}
 	defer tx.Rollback()
+	if err := validateProbeAutoJoin(ctx, tx, "", task.AutoJoin); err != nil {
+		return 0, err
+	}
 	if err := validateProbeAssignments(ctx, tx, "", nodeIDs); err != nil {
 		return 0, err
 	}
-	if _, err := tx.ExecContext(ctx, `INSERT INTO probe_tasks(id,name,host,port,interval_seconds,created_at,updated_at) VALUES(?,?,?,?,?,?,?)`,
-		task.ID, task.Name, task.Host, task.Port, task.IntervalSeconds, unix(now), unix(now)); err != nil {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO probe_tasks(id,name,host,port,interval_seconds,auto_join,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)`,
+		task.ID, task.Name, task.Host, task.Port, task.IntervalSeconds, task.AutoJoin, unix(now), unix(now)); err != nil {
 		return 0, fmt.Errorf("create probe task: %w", err)
 	}
 	for _, nodeID := range uniqueSorted(nodeIDs) {
@@ -46,41 +49,118 @@ func (s *Store) CreateProbeTask(ctx context.Context, task ProbeTask, nodeIDs []s
 
 // UpdateProbeTask replaces a task and its complete assignment set atomically.
 func (s *Store) UpdateProbeTask(ctx context.Context, task ProbeTask, nodeIDs []string, now time.Time) (uint64, error) {
-	if err := validateStoredProbe(task, nodeIDs); err != nil {
-		return 0, err
-	}
+	_, _, version, err := s.mutateProbeTask(ctx, task.ID, now, func(current *ProbeTask) error { *current = task; current.NodeIDs = nodeIDs; return nil })
+	return version, err
+}
+
+// ProbeTaskPatch changes only explicitly supplied configuration fields.
+type ProbeTaskPatch struct {
+	Name            *string
+	Host            *string
+	Port            *uint16
+	IntervalSeconds *uint32
+	AutoJoin        *bool
+	NodeIDs         *[]string
+}
+
+// PatchProbeTask merges fields with committed configuration inside one transaction.
+// It returns the saved task and previous assignments for synchronization/cleanup.
+func (s *Store) PatchProbeTask(ctx context.Context, id string, patch ProbeTaskPatch, now time.Time) (ProbeTask, []string, error) {
+	task, old, _, err := s.mutateProbeTask(ctx, id, now, func(task *ProbeTask) error {
+		if patch.Name != nil {
+			task.Name = *patch.Name
+		}
+		if patch.Host != nil {
+			task.Host = *patch.Host
+		}
+		if patch.Port != nil {
+			task.Port = *patch.Port
+		}
+		if patch.IntervalSeconds != nil {
+			task.IntervalSeconds = *patch.IntervalSeconds
+		}
+		if patch.AutoJoin != nil {
+			task.AutoJoin = *patch.AutoJoin
+		}
+		if patch.NodeIDs != nil {
+			task.NodeIDs = append([]string{}, (*patch.NodeIDs)...)
+		}
+		return nil
+	})
+	return task, old, err
+}
+
+// ChangeProbeAssignment modifies one assignment without replacing concurrent assignments.
+func (s *Store) ChangeProbeAssignment(ctx context.Context, id, nodeID string, add bool, now time.Time) error {
+	_, _, _, err := s.mutateProbeTask(ctx, id, now, func(task *ProbeTask) error {
+		index := sort.SearchStrings(task.NodeIDs, nodeID)
+		exists := index < len(task.NodeIDs) && task.NodeIDs[index] == nodeID
+		if add {
+			if exists {
+				return ErrProbeAssignmentExists
+			}
+			task.NodeIDs = append(task.NodeIDs, nodeID)
+		} else {
+			if !exists {
+				return ErrNotFound
+			}
+			task.NodeIDs = append(task.NodeIDs[:index], task.NodeIDs[index+1:]...)
+		}
+		return nil
+	})
+	return err
+}
+
+func (s *Store) mutateProbeTask(ctx context.Context, id string, now time.Time, mutate func(*ProbeTask) error) (ProbeTask, []string, uint64, error) {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return 0, fmt.Errorf("begin probe task update: %w", err)
+		return ProbeTask{}, nil, 0, fmt.Errorf("begin probe task update: %w", err)
 	}
 	defer tx.Rollback()
-	if err := validateProbeAssignments(ctx, tx, task.ID, nodeIDs); err != nil {
-		return 0, err
-	}
-	result, err := tx.ExecContext(ctx, `UPDATE probe_tasks SET name=?,host=?,port=?,interval_seconds=?,updated_at=? WHERE id=?`,
-		task.Name, task.Host, task.Port, task.IntervalSeconds, unix(now), task.ID)
+	task, err := probeTaskByID(ctx, tx, id)
 	if err != nil {
-		return 0, fmt.Errorf("update probe task: %w", err)
+		return ProbeTask{}, nil, 0, err
+	}
+	oldNodes := append([]string{}, task.NodeIDs...)
+	if err := mutate(&task); err != nil {
+		return ProbeTask{}, nil, 0, err
+	}
+	nodeIDs := task.NodeIDs
+	if err := validateStoredProbe(task, nodeIDs); err != nil {
+		return ProbeTask{}, nil, 0, err
+	}
+	if err := validateProbeAutoJoin(ctx, tx, task.ID, task.AutoJoin); err != nil {
+		return ProbeTask{}, nil, 0, err
+	}
+	if err := validateProbeAssignments(ctx, tx, task.ID, nodeIDs); err != nil {
+		return ProbeTask{}, nil, 0, err
+	}
+	result, err := tx.ExecContext(ctx, `UPDATE probe_tasks SET name=?,host=?,port=?,interval_seconds=?,auto_join=?,updated_at=? WHERE id=?`,
+		task.Name, task.Host, task.Port, task.IntervalSeconds, task.AutoJoin, unix(now), task.ID)
+	if err != nil {
+		return ProbeTask{}, nil, 0, fmt.Errorf("update probe task: %w", err)
 	}
 	if err := requireOneRow(result, "update probe task"); err != nil {
-		return 0, err
+		return ProbeTask{}, nil, 0, err
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM probe_assignments WHERE task_id=?`, task.ID); err != nil {
-		return 0, fmt.Errorf("replace probe assignments: %w", err)
+		return ProbeTask{}, nil, 0, fmt.Errorf("replace probe assignments: %w", err)
 	}
 	for _, nodeID := range uniqueSorted(nodeIDs) {
 		if _, err := tx.ExecContext(ctx, `INSERT INTO probe_assignments(task_id,node_id,created_at) VALUES(?,?,?)`, task.ID, nodeID, unix(now)); err != nil {
-			return 0, fmt.Errorf("replace probe assignment: %w", err)
+			return ProbeTask{}, nil, 0, fmt.Errorf("replace probe assignment: %w", err)
 		}
 	}
 	version, err := bumpProbeVersion(ctx, tx)
 	if err != nil {
-		return 0, err
+		return ProbeTask{}, nil, 0, err
 	}
 	if err := tx.Commit(); err != nil {
-		return 0, fmt.Errorf("commit probe task update: %w", err)
+		return ProbeTask{}, nil, 0, fmt.Errorf("commit probe task update: %w", err)
 	}
-	return version, nil
+	task.NodeIDs = uniqueSorted(nodeIDs)
+	task.UpdatedAt = now.UTC()
+	return task, oldNodes, version, nil
 }
 
 // DeleteProbeTask deletes configuration and records idempotent telemetry
@@ -120,7 +200,7 @@ func (s *Store) DeleteProbeTask(ctx context.Context, taskID string, now time.Tim
 
 // ListProbeTasks returns definitions with stable sorted assignments.
 func (s *Store) ListProbeTasks(ctx context.Context) ([]ProbeTask, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT id,name,host,port,interval_seconds,created_at,updated_at FROM probe_tasks ORDER BY name,id`)
+	rows, err := s.db.QueryContext(ctx, `SELECT id,name,host,port,interval_seconds,auto_join,created_at,updated_at FROM probe_tasks ORDER BY name,id`)
 	if err != nil {
 		return nil, fmt.Errorf("list probe tasks: %w", err)
 	}
@@ -129,7 +209,7 @@ func (s *Store) ListProbeTasks(ctx context.Context) ([]ProbeTask, error) {
 		var task ProbeTask
 		var port, interval uint64
 		var created, updated int64
-		if err := rows.Scan(&task.ID, &task.Name, &task.Host, &port, &interval, &created, &updated); err != nil {
+		if err := rows.Scan(&task.ID, &task.Name, &task.Host, &port, &interval, &task.AutoJoin, &created, &updated); err != nil {
 			return nil, fmt.Errorf("scan probe task: %w", err)
 		}
 		task.Port, task.IntervalSeconds = uint16(port), uint32(interval)
@@ -155,11 +235,20 @@ func (s *Store) ListProbeTasks(ctx context.Context) ([]ProbeTask, error) {
 
 // ProbeTaskByID returns one definition and its assignments.
 func (s *Store) ProbeTaskByID(ctx context.Context, taskID string) (ProbeTask, error) {
+	return probeTaskByID(ctx, s.db, taskID)
+}
+
+type probeTaskQuerier interface {
+	probeQuerier
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}
+
+func probeTaskByID(ctx context.Context, query probeTaskQuerier, taskID string) (ProbeTask, error) {
 	var task ProbeTask
 	var port, interval uint64
 	var created, updated int64
-	err := s.db.QueryRowContext(ctx, `SELECT id,name,host,port,interval_seconds,created_at,updated_at FROM probe_tasks WHERE id=?`, taskID).
-		Scan(&task.ID, &task.Name, &task.Host, &port, &interval, &created, &updated)
+	err := query.QueryRowContext(ctx, `SELECT id,name,host,port,interval_seconds,auto_join,created_at,updated_at FROM probe_tasks WHERE id=?`, taskID).
+		Scan(&task.ID, &task.Name, &task.Host, &port, &interval, &task.AutoJoin, &created, &updated)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ProbeTask{}, ErrNotFound
 	}
@@ -168,7 +257,7 @@ func (s *Store) ProbeTaskByID(ctx context.Context, taskID string) (ProbeTask, er
 	}
 	task.Port, task.IntervalSeconds = uint16(port), uint32(interval)
 	task.CreatedAt, task.UpdatedAt = fromUnix(created), fromUnix(updated)
-	task.NodeIDs, err = probeNodeIDs(ctx, s.db, task.ID)
+	task.NodeIDs, err = probeNodeIDs(ctx, query, task.ID)
 	return task, err
 }
 
@@ -178,7 +267,7 @@ func (s *Store) ProbeSnapshot(ctx context.Context, nodeID string) (ProbeSnapshot
 	if err := s.db.QueryRowContext(ctx, `SELECT version FROM probe_config_state WHERE singleton=1`).Scan(&version); err != nil {
 		return ProbeSnapshot{}, fmt.Errorf("read probe config version: %w", err)
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT p.id,p.name,p.host,p.port,p.interval_seconds,p.created_at,p.updated_at
+	rows, err := s.db.QueryContext(ctx, `SELECT p.id,p.name,p.host,p.port,p.interval_seconds,p.auto_join,p.created_at,p.updated_at
 		FROM probe_assignments a JOIN probe_tasks p ON p.id=a.task_id JOIN nodes n ON n.id=a.node_id
 		WHERE a.node_id=? AND n.deleted_at IS NULL ORDER BY p.id`, nodeID)
 	if err != nil {
@@ -190,7 +279,7 @@ func (s *Store) ProbeSnapshot(ctx context.Context, nodeID string) (ProbeSnapshot
 		var task ProbeTask
 		var port, interval uint64
 		var created, updated int64
-		if err := rows.Scan(&task.ID, &task.Name, &task.Host, &port, &interval, &created, &updated); err != nil {
+		if err := rows.Scan(&task.ID, &task.Name, &task.Host, &port, &interval, &task.AutoJoin, &created, &updated); err != nil {
 			return ProbeSnapshot{}, fmt.Errorf("scan probe snapshot: %w", err)
 		}
 		task.Port, task.IntervalSeconds = uint16(port), uint32(interval)
@@ -317,6 +406,20 @@ func (s *Store) MarkProbeCleanupAttempt(ctx context.Context, taskID string, now 
 func (s *Store) CompleteProbeCleanup(ctx context.Context, taskID string) error {
 	if _, err := s.db.ExecContext(ctx, `DELETE FROM telemetry_probe_cleanup_jobs WHERE task_id=?`, taskID); err != nil {
 		return fmt.Errorf("complete probe cleanup: %w", err)
+	}
+	return nil
+}
+
+func validateProbeAutoJoin(ctx context.Context, tx *sql.Tx, excludeTaskID string, enabled bool) error {
+	if !enabled {
+		return nil
+	}
+	var count int
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM probe_tasks WHERE auto_join=1 AND id<>?`, excludeTaskID).Scan(&count); err != nil {
+		return fmt.Errorf("count auto-join probe tasks: %w", err)
+	}
+	if count >= protocol.MaxProbeTasks {
+		return ErrProbeAutoJoinLimit
 	}
 	return nil
 }

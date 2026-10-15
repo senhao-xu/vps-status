@@ -48,18 +48,32 @@ remaining alert and public APIs are introduced.
 
 ## Public status page
 
-`GET/PUT /api/v1/admin/public-page` reads or atomically replaces the public
-page title, description, enabled flag, and complete node publication
-allowlist. Nodes are private by default; only active node IDs explicitly
-listed by the administrator are published. The mutation requires CSRF.
+`GET/PUT /api/v1/admin/public-page` reads or saves site title, description,
+and anonymous access (`enabled`). The mutation requires administrator
+identity and CSRF. Omitting `node_ids` preserves current homepage membership
+inside the settings transaction. An explicitly supplied `node_ids` array
+retains the legacy complete-replacement behavior, including `[]` to clear it.
+Invalid or inactive IDs reject the entire replacement.
 
-`GET /api/v1/public/status` is unauthenticated and uses a separate DTO built
-server-side. It exposes only page title/description and, for published nodes,
+A fresh or never-configured site allows anonymous homepage access. Migration
+011 only changes sites with `public_page.updated_at=0`; explicitly saved access
+settings and every existing node display choice remain unchanged. New nodes
+join the homepage in their enrollment transaction, within the 1,000-node
+display limit. At capacity registration succeeds with `homepage_visible:false`.
+Administrator node settings control each node's `homepage_visible` independently
+of the dashboard-only `hidden` setting.
+
+`GET /api/v1/public/status` is anonymously readable when site `enabled` is true.
+When false it requires a valid administrator session and returns `401 unauthorized`
+for missing, invalid, expired or revoked sessions. Successful responses in both
+modes use the same separate server-side DTO and effective `page.enabled:true`.
+The endpoint exposes only page title/description and, for displayed nodes,
 display name, group/region, online state, current uptime/CPU/memory/disk,
 current RX/TX rates, and current UTC-month traffic totals. Missing/degraded
 values are JSON `null`. It never contains node IDs, real hostname, IP, OS,
 kernel, architecture, virtualization, credentials, probe targets, alert or
-notification secrets, or historical points/curves.
+notification secrets, or historical points/curves. Authentication changes
+access only; it never expands this projection or includes unlisted nodes.
 
 ## Built-in appearance
 
@@ -71,7 +85,7 @@ administrator session and CSRF token. Unsupported theme IDs return
 table in `control.db`; the initial default is Emerald.
 
 `GET /api/v1/public/appearance` returns only that presentation field without
-authentication, including when the public status page is disabled. Login and
+authentication, including when homepage access requires login. Login and
 public pages use it to choose their default theme. Browser overrides are
 frontend session preferences and do not write this configuration. Visual
 theme and light/dark mode are independent. All appearance responses use the
@@ -249,8 +263,12 @@ WSS sessions, current `LiveStore` state, or SSE.
 - `GET /api/v1/admin/nodes` and `GET /api/v1/admin/nodes/{id}` return explicit
   administrator DTOs combining node metadata/static facts with a copied live
   snapshot.
-- `PATCH /api/v1/admin/nodes/{id}` updates optional `name`, `group`, and
-  `hidden` fields and requires CSRF. `DELETE` soft-deletes the node, revokes
+- `PATCH /api/v1/admin/nodes/{id}` updates optional `name`, `group`, `hidden`,
+  and `homepage_visible` fields and requires CSRF. Display membership and supplied
+  metadata merge atomically against current state; omitted fields stay unchanged.
+  Enabling display beyond 1,000 nodes returns `409 homepage_node_limit` without
+  saving any part of the request. Node list, detail and PATCH responses include
+  the derived `homepage_visible` boolean. `DELETE` soft-deletes the node, revokes
   its credential, disconnects it, clears current memory state, and durably
   queues idempotent telemetry cleanup for startup/background retry.
 - `GET /api/v1/admin/live` is an authenticated SSE stream. Its bounded event
@@ -272,11 +290,20 @@ TCP definitions are low-growth configuration in `control.db`:
   in-memory results; either filter is optional.
 
 Create accepts strict JSON `name`, `host`, `port`, `interval_seconds`, and
-`node_ids`. Patch accepts the same fields optionally and replaces `node_ids`
+`node_ids`, plus optional boolean `auto_join` (default `false` for existing
+callers). Responses always include `auto_join`. Patch accepts the same fields
+optionally, preserves `auto_join` when omitted, and replaces `node_ids`
 as a complete set when present. Mutations require CSRF. A node may have at
 most 64 tasks, intervals are 5–3600 seconds, and ports are 1–65535. DNS names
 and public/private/loopback IP literals are allowed; unspecified and multicast
-addresses are rejected. The stable quota error is `409 probe_task_limit`.
+addresses are rejected. The per-node quota error is `409 probe_task_limit`.
+At most 64 definitions can enable `auto_join`; exceeding that limit returns
+`409 probe_auto_join_limit` without changing the task, assignments or snapshot
+version. Enrollment atomically assigns enabled tasks to the new node and
+advances the snapshot version once if assignments exist. Toggling `auto_join`
+only affects future enrollment: existing assignments change solely through
+explicit `node_ids` or assignment requests. Existing tasks migrate with
+`auto_join=false`; this field never enters the Agent protocol.
 
 After Agent hello, Control sends a strongly typed, versioned `probe.sync`
 complete snapshot. Agent treats it as untrusted: it never clamps invalid

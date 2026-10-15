@@ -219,10 +219,13 @@ go run ./cmd/control admin reset-mfa --data-dir ./data
 
 The unauthenticated status page is served at `/`, with `/public` retained as
 a compatible address. Its top-right administration link opens `/admin`, where
-administrator setup and login are handled. Public node publication is disabled
-by default; enable it and explicitly select published nodes in the
-Public page section. Its API is a separate server-side allowlist projection
-that does not expose host identity, credentials, probe targets, or history.
+administrator setup and login are handled. The homepage is open by default and
+new nodes appear automatically. Use **Site settings** for the site name,
+description and **Access requires login**; choose **Homepage display** in each
+node’s settings to control which nodes appear. Upgrades preserve saved access
+settings and existing node display choices. Both open and login-required
+homepages use the same limited status API, without host identity, credentials,
+probe targets or history.
 
 Deployment, non-root systemd installation, TLS reverse proxy, credential
 rotation, backup/verified restore, and Docker Compose instructions are in

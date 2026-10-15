@@ -126,7 +126,7 @@ export function AdminDashboard({ session, refreshSession, logout, onUnauthorized
       <main className="content" id="main-content">
         <header className="content-header">
           <div><p className="eyebrow">Control</p><h1>{sectionLabel(section, t)}</h1></div>
-          <a href="/" target="_blank" rel="noreferrer">{t('publicPageNewWindow')}</a>
+          <a className="homepage-button" href="/" target="_blank" rel="noreferrer">{t('publicPageNewWindow')}</a>
         </header>
         {error && <p className="notice error" role="alert">{error}</p>}
         {notice && <p className="notice success" role="status">{notice}</p>}
@@ -136,7 +136,7 @@ export function AdminDashboard({ session, refreshSession, logout, onUnauthorized
             {section === 'probes' && <ProbesPanel probes={data.probes} nodes={data.nodes} refresh={refreshNodes} onUnauthorized={onUnauthorized} />}
             {section === 'alerts' && <AlertsPanel nodes={data.nodes} channels={data.channels} rules={data.rules} refresh={refreshNodes} onUnauthorized={onUnauthorized} />}
             {section === 'storage' && <StoragePanel storage={data.storage} refresh={refreshNodes} onUnauthorized={onUnauthorized} />}
-            {section === 'public' && <PublicConfigPanel nodes={data.nodes} config={data.publicPage} refresh={refreshNodes} onUnauthorized={onUnauthorized} />}
+            {section === 'public' && <PublicConfigPanel config={data.publicPage} refresh={refreshNodes} onUnauthorized={onUnauthorized} />}
             {section === 'security' && <SecurityPanel session={session} refreshSession={refreshSession} onUnauthorized={onUnauthorized} />}
             {section === 'appearance' && <AppearancePanel onUnauthorized={onUnauthorized} />}
           </>

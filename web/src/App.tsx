@@ -2,6 +2,7 @@ import './styles.css'
 
 import { AdminDashboard } from './features/admin/AdminDashboard'
 import { AuthGate } from './features/auth/AuthGate'
+import { returnHomeAfterAuth } from './features/auth/authDestination'
 import { PublicStatusPage } from './features/public/PublicStatusPage'
 import { I18nProvider } from './i18n'
 import { ThemeProvider } from './theme'
@@ -16,7 +17,7 @@ function AppRoutes() {
     return <PublicStatusPage />
   }
   return (
-    <AuthGate>
+    <AuthGate returnHome={returnHomeAfterAuth(path, window.location.search ?? '')}>
       {(session, refreshSession, logout, onUnauthorized) => (
         <AdminDashboard session={session} refreshSession={refreshSession} logout={logout} onUnauthorized={onUnauthorized} />
       )}

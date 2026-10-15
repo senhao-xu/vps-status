@@ -42,6 +42,8 @@ var (
 	// ErrProbeTaskLimit is returned when an assignment would give one node a
 	// 65th active TCP probe task.
 	ErrProbeTaskLimit = errors.New("node probe task limit reached")
+	// ErrProbeAutoJoinLimit bounds tasks automatically assigned to future nodes.
+	ErrProbeAutoJoinLimit = errors.New("auto-join probe task limit reached")
 	// ErrProbeAssignmentExists is returned for a duplicate assignment.
 	ErrProbeAssignmentExists = errors.New("probe assignment already exists")
 	// ErrNotificationChannelLimit is returned when the bounded channel set is full.
@@ -59,6 +61,10 @@ var (
 	// ErrInvalidPublicConfiguration is returned when a public-page update is
 	// malformed or references a node that is not active.
 	ErrInvalidPublicConfiguration = errors.New("invalid public page configuration")
+	// ErrInvalidNodeConfiguration is returned for invalid display metadata.
+	ErrInvalidNodeConfiguration = errors.New("invalid node configuration")
+	// ErrHomepageNodeLimit bounds the homepage display membership.
+	ErrHomepageNodeLimit = errors.New("homepage node limit reached")
 )
 
 // MaxActiveEnrollmentTokens bounds unconsumed, unexpired enrollment state in
@@ -104,14 +110,15 @@ type Session struct {
 
 // Node is low-growth node identity and display metadata.
 type Node struct {
-	ID        string
-	Name      string
-	Group     string
-	Hidden    bool
-	Facts     NodeFacts
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt *time.Time
+	ID              string
+	Name            string
+	Group           string
+	Hidden          bool
+	HomepageVisible bool
+	Facts           NodeFacts
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+	DeletedAt       *time.Time
 }
 
 // NodeFacts are low-frequency host identity fields, not live telemetry.
@@ -159,6 +166,7 @@ type ProbeTask struct {
 	Host            string
 	Port            uint16
 	IntervalSeconds uint32
+	AutoJoin        bool
 	NodeIDs         []string
 	CreatedAt       time.Time
 	UpdatedAt       time.Time

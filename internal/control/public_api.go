@@ -33,10 +33,10 @@ func (api *adminAPI) publicPageConfig(response http.ResponseWriter, request *htt
 }
 
 type updatePublicPageRequest struct {
-	Enabled     bool     `json:"enabled"`
-	Title       string   `json:"title"`
-	Description string   `json:"description"`
-	NodeIDs     []string `json:"node_ids"`
+	Enabled     bool      `json:"enabled"`
+	Title       string    `json:"title"`
+	Description string    `json:"description"`
+	NodeIDs     *[]string `json:"node_ids"`
 }
 
 func (api *adminAPI) updatePublicPageConfig(response http.ResponseWriter, request *http.Request, _ authenticatedRequest) {
@@ -45,8 +45,8 @@ func (api *adminAPI) updatePublicPageConfig(response http.ResponseWriter, reques
 		return
 	}
 	page := controlstore.PublicPage{Enabled: input.Enabled, Title: strings.TrimSpace(input.Title),
-		Description: strings.TrimSpace(input.Description), NodeIDs: append([]string(nil), input.NodeIDs...)}
-	if err := api.config.Store.UpdatePublicPage(request.Context(), page, api.now()); errors.Is(err, controlstore.ErrInvalidPublicConfiguration) {
+		Description: strings.TrimSpace(input.Description)}
+	if err := api.config.Store.UpdateSiteSettings(request.Context(), page, input.NodeIDs, api.now()); errors.Is(err, controlstore.ErrInvalidPublicConfiguration) {
 		writeError(response, http.StatusBadRequest, "invalid_input", "The public page configuration is invalid.")
 		return
 	} else if err != nil {
@@ -94,12 +94,20 @@ func (api *adminAPI) publicStatus(response http.ResponseWriter, request *http.Re
 		writeInternal(response)
 		return
 	}
-	result := publicStatusDTO{Nodes: make([]publicNodeDTO, 0)}
-	result.Page.Enabled, result.Page.Title, result.Page.Description = page.Enabled, page.Title, page.Description
 	if !page.Enabled {
-		writeJSON(response, http.StatusOK, result)
+		api.auth(false, func(response http.ResponseWriter, request *http.Request, _ authenticatedRequest) {
+			api.writeHomepageStatus(response, request, page)
+		})(response, request)
 		return
 	}
+	api.writeHomepageStatus(response, request, page)
+}
+
+// Both access modes use this single strict public projection. Authentication
+// grants access to the homepage without expanding its fields or node set.
+func (api *adminAPI) writeHomepageStatus(response http.ResponseWriter, request *http.Request, page controlstore.PublicPage) {
+	result := publicStatusDTO{Nodes: make([]publicNodeDTO, 0)}
+	result.Page.Enabled, result.Page.Title, result.Page.Description = true, page.Title, page.Description
 	nodes, err := api.config.Store.ListPublishedNodes(request.Context())
 	if err != nil {
 		writeInternal(response)

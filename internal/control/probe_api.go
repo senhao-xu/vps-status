@@ -18,6 +18,7 @@ type probeTaskDTO struct {
 	Host            string        `json:"host"`
 	Port            uint16        `json:"port"`
 	IntervalSeconds uint32        `json:"interval_seconds"`
+	AutoJoin        bool          `json:"auto_join"`
 	NodeIDs         []string      `json:"node_ids"`
 	CreatedAt       time.Time     `json:"created_at"`
 	UpdatedAt       time.Time     `json:"updated_at"`
@@ -28,7 +29,7 @@ func (api *adminAPI) probeDTO(task controlstore.ProbeTask) probeTaskDTO {
 	latest := api.config.ProbeHistory.Latest("", task.ID)
 	sort.Slice(latest, func(i, j int) bool { return latest[i].NodeID < latest[j].NodeID })
 	return probeTaskDTO{ID: task.ID, Name: task.Name, Host: task.Host, Port: task.Port,
-		IntervalSeconds: task.IntervalSeconds, NodeIDs: append([]string{}, task.NodeIDs...),
+		IntervalSeconds: task.IntervalSeconds, AutoJoin: task.AutoJoin, NodeIDs: append([]string{}, task.NodeIDs...),
 		CreatedAt: task.CreatedAt, UpdatedAt: task.UpdatedAt, Latest: latest}
 }
 
@@ -63,6 +64,7 @@ type createProbeRequest struct {
 	Host            string   `json:"host"`
 	Port            uint16   `json:"port"`
 	IntervalSeconds uint32   `json:"interval_seconds"`
+	AutoJoin        bool     `json:"auto_join"`
 	NodeIDs         []string `json:"node_ids"`
 }
 
@@ -77,7 +79,7 @@ func (api *adminAPI) createProbe(response http.ResponseWriter, request *http.Req
 		writeInternal(response)
 		return
 	}
-	task := controlstore.ProbeTask{ID: id, Name: input.Name, Host: input.Host, Port: input.Port, IntervalSeconds: input.IntervalSeconds}
+	task := controlstore.ProbeTask{ID: id, Name: input.Name, Host: input.Host, Port: input.Port, IntervalSeconds: input.IntervalSeconds, AutoJoin: input.AutoJoin}
 	if !validProbeConfiguration(task, input.NodeIDs) {
 		writeError(response, http.StatusBadRequest, "invalid_input", "The TCP probe configuration is invalid.")
 		return
@@ -97,6 +99,7 @@ type updateProbeRequest struct {
 	Host            *string   `json:"host"`
 	Port            *uint16   `json:"port"`
 	IntervalSeconds *uint32   `json:"interval_seconds"`
+	AutoJoin        *bool     `json:"auto_join"`
 	NodeIDs         *[]string `json:"node_ids"`
 }
 
@@ -127,6 +130,9 @@ func (api *adminAPI) updateProbe(response http.ResponseWriter, request *http.Req
 	if input.IntervalSeconds != nil {
 		current.IntervalSeconds = *input.IntervalSeconds
 	}
+	if input.AutoJoin != nil {
+		current.AutoJoin = *input.AutoJoin
+	}
 	if input.NodeIDs != nil {
 		current.NodeIDs = append([]string(nil), (*input.NodeIDs)...)
 	}
@@ -134,8 +140,18 @@ func (api *adminAPI) updateProbe(response http.ResponseWriter, request *http.Req
 		writeError(response, http.StatusBadRequest, "invalid_input", "The TCP probe configuration is invalid.")
 		return
 	}
+	patch := controlstore.ProbeTaskPatch{Name: input.Name, Host: input.Host, Port: input.Port, IntervalSeconds: input.IntervalSeconds, AutoJoin: input.AutoJoin, NodeIDs: input.NodeIDs}
+	if patch.Name != nil {
+		value := strings.TrimSpace(*patch.Name)
+		patch.Name = &value
+	}
+	if patch.Host != nil {
+		value := strings.TrimSpace(*patch.Host)
+		patch.Host = &value
+	}
 	now := api.now()
-	if _, err := api.config.Store.UpdateProbeTask(request.Context(), current, current.NodeIDs, now); err != nil {
+	current, oldNodes, err = api.config.Store.PatchProbeTask(request.Context(), current.ID, patch, now)
+	if err != nil {
 		api.writeProbeStoreError(response, err)
 		return
 	}
@@ -178,36 +194,17 @@ func (api *adminAPI) removeProbeAssignment(response http.ResponseWriter, request
 }
 
 func (api *adminAPI) changeProbeAssignment(response http.ResponseWriter, request *http.Request, _ authenticatedRequest, add bool) {
-	task, err := api.config.Store.ProbeTaskByID(request.Context(), request.PathValue("id"))
-	if err != nil {
-		api.writeProbeStoreError(response, err)
-		return
-	}
-	nodeID := request.PathValue("node_id")
-	nodes := append([]string(nil), task.NodeIDs...)
-	index := sort.SearchStrings(nodes, nodeID)
-	exists := index < len(nodes) && nodes[index] == nodeID
-	if add && !exists {
-		nodes = append(nodes, nodeID)
-	} else if !add && exists {
-		nodes = append(nodes[:index], nodes[index+1:]...)
-	} else if add {
-		writeError(response, http.StatusConflict, "assignment_exists", "The probe assignment already exists.")
-		return
-	} else {
-		writeError(response, http.StatusNotFound, "not_found", "The probe assignment was not found.")
-		return
-	}
-	if !validProbeConfiguration(task, nodes) {
+	taskID, nodeID := request.PathValue("id"), request.PathValue("node_id")
+	if nodeID == "" || len(nodeID) > 128 {
 		writeError(response, http.StatusBadRequest, "invalid_input", "The probe assignment is invalid.")
 		return
 	}
-	if _, err := api.config.Store.UpdateProbeTask(request.Context(), task, nodes, api.now()); err != nil {
+	if err := api.config.Store.ChangeProbeAssignment(request.Context(), taskID, nodeID, add, api.now()); err != nil {
 		api.writeProbeStoreError(response, err)
 		return
 	}
 	if !add {
-		api.config.ProbeHistory.deleteAssignment(nodeID, task.ID)
+		api.config.ProbeHistory.deleteAssignment(nodeID, taskID)
 	}
 	api.syncProbeNodes([]string{nodeID})
 	response.WriteHeader(http.StatusNoContent)
@@ -264,6 +261,10 @@ func (api *adminAPI) writeProbeStoreError(response http.ResponseWriter, err erro
 	switch {
 	case errors.Is(err, controlstore.ErrNotFound):
 		writeError(response, http.StatusNotFound, "not_found", "The TCP probe task or node was not found.")
+	case errors.Is(err, controlstore.ErrProbeAssignmentExists):
+		writeError(response, http.StatusConflict, "assignment_exists", "The probe assignment already exists.")
+	case errors.Is(err, controlstore.ErrProbeAutoJoinLimit):
+		writeError(response, http.StatusConflict, "probe_auto_join_limit", "No more than 64 TCP probe tasks can automatically join future nodes.")
 	case errors.Is(err, controlstore.ErrProbeTaskLimit):
 		writeError(response, http.StatusConflict, "probe_task_limit", "A node cannot have more than 64 TCP probe tasks.")
 	default:

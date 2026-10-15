@@ -24,7 +24,7 @@ func createPublicTestNode(t *testing.T, store *Store, id string, now time.Time) 
 	}
 }
 
-func TestPublicPageDefaultsPrivateAndReplacesAllowlist(t *testing.T) {
+func TestHomepageDefaultsOpenAndReplacesMembership(t *testing.T) {
 	store := openTestStore(t)
 	now := time.Unix(1_700_000_000, 0).UTC()
 	createPublicTestNode(t, store, "node-a", now)
@@ -34,7 +34,7 @@ func TestPublicPageDefaultsPrivateAndReplacesAllowlist(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if page.Enabled || page.Title != "VPS Status" || len(page.NodeIDs) != 0 {
+	if !page.Enabled || page.Title != "VPS Status" || len(page.NodeIDs) != 2 {
 		t.Fatalf("default public page = %#v", page)
 	}
 	page = PublicPage{Enabled: true, Title: "Edge status", Description: "Availability", NodeIDs: []string{"node-b", "node-a"}}

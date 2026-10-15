@@ -19,14 +19,17 @@ Agent reports, probe results, rates, cumulative traffic values, and historical b
 - Control schema v3 keeps administrator-owned node name/group/hidden fields and low-frequency hello facts (hostname, OS, kernel, architecture, virtualization). `UpdateNodeFacts` writes only when those facts change. Schema v4 adds a node-ID-only telemetry cleanup outbox. Schema v5 adds only TCP definitions/assignments, a snapshot version, and task-ID-only cleanup jobs. These outboxes are not telemetry storage. Live reports, probe results/latency, boot IDs, rates, cumulative counters, and online transitions never update control rows.
 - Control schema v6 adds encrypted notification channel configuration, bounded alert rules/current state, and a 4,096-row transition/test delivery outbox. Alert event payloads are bounded state-transition records, never raw reports or history. Completed rows are pruned; every table and assignment set has an application hard limit.
 - Control schema v7 adds singleton `public_page` presentation settings and an
-  explicit `public_nodes` allowlist. Absence from `public_nodes` means private;
+  explicit `public_nodes` homepage membership. Absence means not displayed;
   neither table contains host facts, reports, traffic, probe results, or history.
 - Control schema v8 adds singleton `appearance` with a checked built-in
   `default_theme` enum. Its initial value is Emerald; see
   [Built-in Appearance](./appearance-guidelines.md).
+- Control schema v10 adds checked `probe_tasks.auto_join`, defaultfalse for existing tasks. Future-node assignments share the enrollment transaction; see [Bounded TCP Probes](./tcp-probe-guidelines.md).
 - Control schema v9 adds singleton `installation` for a shared node HTTPS
   entry and optional Agent version override. No credentials or telemetry are
   stored; see [Installation Settings](./installation-guidelines.md).
+
+- Control schema v11 opens never-configured homepage settings only (`updated_at=0`), preserving saved access choices and existing node membership. New enrollment joins homepage membership atomically within the1000node cap; see [Homepage Status Boundary](./public-status-guidelines.md).
 
 ## Migrations
 

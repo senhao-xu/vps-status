@@ -266,3 +266,27 @@ Verification: [公开首页入口修正验收](./verification-public-homepage.md
 - [x] Record session, keep parent task active for outstanding capacity/security work.
 
 Implementation ownership: remaining_pages_implement owns frontend code/styles/translations/tests; primary owns task/spec/evidence and integration/browser/deployment. They are not alone in the workspace and must retain others' edits.
+
+### Latency checks and detail modal (2026-10-15)
+
+- [x] Inspect official Komari/monitor task and history interactions; record source revisions and adaptation boundary.
+- [x] Rename visible TCP probe management copy to latency checks in zh/en; retain TCP method clarity.
+- [x] Replace inline history with an explicit native details dialog reachable from both views and node results. Keep add/edit/delete workflows and correct cancellation/refresh/selection behavior.
+- [x] Verify unit coverage appropriate to data/selection changes, lint/typecheck/tests/build and Go embedded assets.
+- [x] Run isolated browser interactions including close/focus, task/node/range switching, history/error/empty, refresh/removal, themes/languages and 320px.
+- [x] Independent Trellis review; update spec and verification evidence; leave a reviewable implementation.
+- [x] User explicitly authorized commit/push on2026-10-15; record this implementation and validation in the session journal. Parent remains active for unfinished security/capacity acceptance work.
+
+### monitor-style TCP configuration (2026-10-15)
+
+- [x] Persist and expose auto_join; atomic enrollment assignments and snapshot version; enforce auto-join/per-node quotas with storage/API/migration tests.
+- [x] Unified validated target, default60s/default-all nodes, group/search selection, auto-join control, concise language, no-node guidance, dual-language/theme/mobile.
+- [x] Review implementation; frontend gates, Go tests/race/vet/tagged build; isolated browser/API exercises for IPv4/IPv6/errors, filtering/hidden selection, real enrollment auto-assignment, edit retention/disable, dialog dismissal/pending/error.
+- [x] Update specs and evidence, create verified rollback backup and update only local Control, verify migration/data/assets/health/browser. No commit/push without existing workflow confirmation.
+
+### First-class homepage/site settings (2026-10-15)
+
+- [x] Backend schema011/defaults, atomic enrollment membership, admin homepage_visible read/write, partial site-settings writes, authenticated safe homepage and migration/concurrency/allowlist tests.
+- [x] Frontend site settings simplification, per-node homepage toggle, neutral homepage wording, real login-required/return-home flow, strict decoder and UI tests.
+- [x] Independent full-increment review; frontend gates and Go full/race/vet/tagged build; isolated schema10->11/browser default/open/hidden/login/access/selection-concurrency/error/mobile checks.
+- [x] Update specs/evidence; verified pre-update backup, targeted Docker deployment, health/assets/data comparison and deployed browser smoke. Preserve parent outstanding work and uncommitted source.

@@ -4,7 +4,7 @@ import { type LiveEvent, type Node } from '../../api/contracts'
 import { createNodeRefreshBuffer } from './nodeRefresh'
 
 const snapshot: Node = {
-  id: 'node-1', name: 'Renamed edge', group: 'SG', hidden: false,
+  id: 'node-1', name: 'Renamed edge', group: 'SG', hidden: false, homepageVisible: false,
   hostname: '', os: '', kernel: '', architecture: '', virtualization: '',
   connected: true, online: true, lastReportAt: '2026-10-13T12:00:00Z', report: null,
 }

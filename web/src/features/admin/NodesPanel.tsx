@@ -63,7 +63,7 @@ export function NodesPanel({ nodes, mutate, refreshNodes, onUnauthorized, onOpen
         <NodeCardBody name={node.name} group={node.group} online={node.online} stale={node.connected && !node.online} values={node.report} />
       </button>)}
     </div>
-    {selected && <><button className="back-button" onClick={() => { setSelectedID(''); setOneTime('') }}>← {t('backToNodes')}</button><NodeDetail key={selected.id} node={selected} telemetry={telemetry} mutate={mutate} setOneTime={setOneTime} onUnauthorized={onUnauthorized} />{oneTime && <pre className="secret-once" role="status">{oneTime}</pre>}</>}
+    {selected && <><button className="back-button" onClick={() => { setSelectedID(''); setOneTime('') }}>← {t('backToNodes')}</button><NodeDetail key={selected.id} node={selected} telemetry={telemetry} mutate={mutate} setOneTime={setOneTime} onUnauthorized={onUnauthorized} onSaved={refreshNodes} />{oneTime && <pre className="secret-once" role="status">{oneTime}</pre>}</>}
     {installing && <EnrollmentDialog onClose={() => setInstalling(false)} onOnline={onOnline} onViewNode={setSelectedID} onUnauthorized={onUnauthorized} onOpenSettings={onOpenSettings} />}
   </div>
 }

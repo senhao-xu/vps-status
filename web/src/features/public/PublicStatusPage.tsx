@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { apiRequest, errorMessage } from '../../api/client'
+import { APIError, apiRequest, errorMessage } from '../../api/client'
 import { decodePublicStatus, type PublicStatus } from '../../api/contracts'
 import { PreferenceControls } from '../../components/PreferenceControls'
 import { FleetSummary, filterNodes, NodeFilters, type NodeView } from '../../components/NodeFilters'
@@ -11,6 +11,7 @@ import { useI18n } from '../../i18n'
 type PublicState =
   | { status: 'loading' }
   | { status: 'error'; message: string }
+  | { status: 'login-required' }
   | { status: 'success'; data: PublicStatus }
 
 function PublicToolbar() {
@@ -33,7 +34,9 @@ export function PublicStatusPage() {
         const data = await apiRequest('/api/v1/public/status', decodePublicStatus, { signal: controller.signal })
         if (!disposed && requestSequence === sequence) setState({ status: 'success', data })
       } catch (error) {
-        if (!disposed && requestSequence === sequence) setState({ status: 'error', message: errorMessage(error, t) })
+        if (!disposed && requestSequence === sequence) setState(error instanceof APIError && error.status === 401
+          ? { status: 'login-required' }
+          : { status: 'error', message: errorMessage(error, t) })
       } finally {
         if (!disposed) timer = window.setTimeout(() => void load(), 15_000)
       }
@@ -48,7 +51,13 @@ export function PublicStatusPage() {
 
   if (state.status === 'loading') return <main className="public-shell"><PublicToolbar /><p role="status">{t('loadingPublicStatus')}</p></main>
   if (state.status === 'error') return <main className="public-shell"><PublicToolbar /><div className="notice error" role="alert">{state.message}</div></main>
+  if (state.status === 'login-required') return <HomepageLoginRequired />
   return <PublicStatusView status={state.data} />
+}
+
+export function HomepageLoginRequired() {
+  const { t } = useI18n()
+  return <main className="public-shell"><PublicToolbar /><section className="panel homepage-login"><h1>{t('homepageLoginRequired')}</h1><p className="muted">{t('homepageLoginHint')}</p><a className="button-link primary" href="/admin?next=home">{t('signInToView')}</a></section></main>
 }
 
 export function PublicStatusView({ status }: { status: PublicStatus }) {
@@ -59,7 +68,7 @@ export function PublicStatusView({ status }: { status: PublicStatus }) {
   const groups = [...new Set(status.nodes.map((node) => node.group).filter(Boolean))].sort()
   const visible = filterNodes(status.nodes, group, search)
   if (!status.page.enabled) {
-    return <main className="public-shell"><PublicToolbar /><section className="panel"><h1>{status.page.title}</h1><p>{t('publicDisabled')}</p></section></main>
+    return <HomepageLoginRequired />
   }
   return (
     <main className="public-shell">
@@ -72,7 +81,7 @@ export function PublicStatusView({ status }: { status: PublicStatus }) {
       </header>
       <div className="public-overview"><FleetSummary total={status.nodes.length} online={status.nodes.filter((node) => node.online).length} groups={groups.length} />
         <NodeFilters groups={groups} group={group} onGroup={setGroup} search={search} onSearch={setSearch} view={view} onView={setView} /></div>
-      <section className={`public-grid ${view === 'list' ? 'node-list' : ''}`} aria-label={t('publishedNodes')}>
+      <section className={`public-grid ${view === 'list' ? 'node-list' : ''}`} aria-label={t('nodes')}>
         {visible.length === 0 ? <p className="empty">{status.nodes.length === 0 ? t('noPublishedNodes') : t('noMatchingNodes')}</p> : visible.map((node, index) => (
           <article className="public-node" key={`${node.group}:${node.name}:${index}`}>
             <NodeCardBody name={node.name} group={node.group} online={node.online} values={node} extra={<dl className="monthly-traffic">
@@ -82,7 +91,7 @@ export function PublicStatusView({ status }: { status: PublicStatus }) {
           </article>
         ))}
       </section>
-      <footer>{t('readOnlyPublicView')}</footer>
+      <footer>VPS Status</footer>
     </main>
   )
 }

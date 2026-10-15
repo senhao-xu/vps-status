@@ -47,7 +47,12 @@ func (*LiveStore) Unsubscribe(uint64)
 
 func (*Store) ListNodes(context.Context) ([]Node, error)
 func (*Store) NodeByID(context.Context, string) (Node, error)
-func (*Store) UpdateNode(context.Context, string, string, string, bool, time.Time) error
+type NodePatch struct {
+    Name, Group *string
+    Hidden, HomepageVisible *bool
+}
+func (*Store) PatchNode(context.Context, string, NodePatch, time.Time) (Node, error)
+func (*Store) UpdateNode(context.Context, string, string, string, bool, time.Time) error // legacy wrapper
 func (*Store) UpdateNodeFacts(context.Context, string, NodeFacts, time.Time) error
 func (*Store) DeleteNode(context.Context, string, time.Time) error
 ```
@@ -102,10 +107,15 @@ Control schema v3 adds only `group_name`, `hidden`, `hostname`, `os`,
 
 - `GET /api/v1/admin/nodes` returns `{ "nodes": [...] }`; detail uses
   `GET /api/v1/admin/nodes/{id}`. Explicit DTOs combine low-growth metadata
-  with a copied live snapshot.
+  with a copied live snapshot. Each admin node emits homepage_visible derived
+  from public_nodes; it is independent of hidden and is never added to the
+  status DTO or private live event payload.
 - `PATCH /api/v1/admin/nodes/{id}` accepts optional `name`, `group`, and
-  `hidden`; name is non-empty and name/group are at most 128 bytes. It requires
-  CSRF. `DELETE` soft-deletes the node, revokes credentials atomically,
+  `hidden`, and `homepage_visible`; name is non-empty and name/group are at most
+  128 bytes. It requires CSRF and merges supplied fields in one storage-owned
+  transaction, including display membership. Omitted fields retain current
+  committed values. An enable beyond the1000display cap returns409
+  homepage_node_limit and rolls back metadata too. `DELETE` soft-deletes the node, revokes credentials atomically,
   disconnects it, removes current memory state, and atomically records a
   durable node-ID-only telemetry cleanup job.
 - `GET /api/v1/admin/live` is authenticated `text/event-stream` with bounded
@@ -127,6 +137,7 @@ Control schema v3 adds only `group_name`, `hidden`, `hostname`, `os`,
 | Report belongs to a replaced session | protocol `session_mismatch`, then close |
 | Four intervals pass without a report | current session remains connected but node becomes offline/stale |
 | Node name/group invalid | HTTP `400 invalid_input` |
+| Homepage display cap on manual enable | HTTP `409 homepage_node_limit`; entire node update unchanged |
 | Node missing/deleted | HTTP `404 not_found` |
 | 33rd live subscriber | HTTP `503 live_subscriber_limit` |
 | SSE session expires/revokes or client cancels | stream closes and subscription is released |
