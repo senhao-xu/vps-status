@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { Node, ProbeTask } from '../../api/contracts'
-import { parseProbeTarget, probeSelection, visibleProbeNodes } from './probeConfiguration'
+import { parseProbeTarget, probeAssignmentWrite, probeSelection, visibleProbeNodes } from './probeConfiguration'
 import { probeTarget } from './probePresentation'
 
 const node = (id: string, group: string): Node => ({ id, name: `Node ${id}`, group, hidden: false, homepageVisible: false, hostname: '', os: '', kernel: '', architecture: '', virtualization: '', connected: false, online: false, lastReportAt: null, report: null })
@@ -45,5 +45,31 @@ describe('TCP configuration node selection', () => {
     const shown = visibleProbeNodes(nodes, 'all', '')
     const overrides = new Map(shown.map((item) => [item.id, false]))
     expect([...probeSelection(null, nodes, overrides)]).toEqual(['a', 'c', 'd'])
+  })
+})
+
+describe('TCP configuration assignment submission', () => {
+  it('creates with the complete chosen set, including default-all and explicit empty selection', () => {
+    expect(probeAssignmentWrite(null, nodes, new Map())).toEqual({ node_ids: ['a', 'b', 'c', 'd'] })
+    expect(probeAssignmentWrite(null, nodes, new Map(nodes.map(({ id }) => [id, false])))).toEqual({ node_ids: [] })
+  })
+
+  it('omits assignment replacement when an edit leaves selection untouched, even with a stale snapshot', () => {
+    // Enrollment may have assigned a node absent from both cached task and nodes.
+    expect(probeAssignmentWrite(task, nodes, new Map())).toEqual({})
+    expect(probeAssignmentWrite({ ...task, nodeIds: ['a', 'new-node'] }, [...nodes, node('new-node', '')], new Map())).toEqual({})
+  })
+
+  it('submits only explicit choices and preserves unrelated assignments across refresh and filtering', () => {
+    const overrides = new Map([['a', false], ['c', true]])
+    const expected = { node_ids_add: ['c'], node_ids_remove: ['a'] }
+    expect(probeAssignmentWrite(task, nodes, overrides)).toEqual(expected)
+    expect(probeAssignmentWrite({ ...task, nodeIds: ['a', 'b', 'new-node'] }, [...nodes, node('new-node', '')], overrides)).toEqual(expected)
+    // Selecting a shown node already assigned still expresses the explicit choice.
+    expect(probeAssignmentWrite(task, nodes, new Map([['a', true]]))).toEqual({ node_ids_add: ['a'] })
+  })
+
+  it('does not re-add a deleted node but retains explicit removals as idempotent changes', () => {
+    expect(probeAssignmentWrite(task, nodes, new Map([['deleted-node', true], ['removed-node', false]]))).toEqual({ node_ids_remove: ['removed-node'] })
   })
 })

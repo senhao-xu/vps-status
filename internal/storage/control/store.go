@@ -42,6 +42,8 @@ var (
 	// ErrProbeTaskLimit is returned when an assignment would give one node a
 	// 65th active TCP probe task.
 	ErrProbeTaskLimit = errors.New("node probe task limit reached")
+	// ErrInvalidProbeConfiguration is returned for malformed task or assignment changes.
+	ErrInvalidProbeConfiguration = errors.New("invalid probe task configuration")
 	// ErrProbeAutoJoinLimit bounds tasks automatically assigned to future nodes.
 	ErrProbeAutoJoinLimit = errors.New("auto-join probe task limit reached")
 	// ErrProbeAssignmentExists is returned for a duplicate assignment.

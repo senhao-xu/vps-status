@@ -61,11 +61,42 @@ type ProbeTaskPatch struct {
 	IntervalSeconds *uint32
 	AutoJoin        *bool
 	NodeIDs         *[]string
+	NodeIDsAdd      *[]string
+	NodeIDsRemove   *[]string
+}
+
+// ValidateAssignments rejects ambiguous replacement/delta operations and malformed IDs.
+func (patch ProbeTaskPatch) ValidateAssignments() error {
+	if patch.NodeIDs != nil && (patch.NodeIDsAdd != nil || patch.NodeIDsRemove != nil) {
+		return ErrInvalidProbeConfiguration
+	}
+	seen := make(map[string]struct{})
+	for _, ids := range []*[]string{patch.NodeIDs, patch.NodeIDsAdd, patch.NodeIDsRemove} {
+		if ids == nil {
+			continue
+		}
+		if len(*ids) > 10000 {
+			return ErrInvalidProbeConfiguration
+		}
+		for _, id := range *ids {
+			if !protocol.ValidProbeID(id) {
+				return ErrInvalidProbeConfiguration
+			}
+			if _, duplicate := seen[id]; duplicate {
+				return ErrInvalidProbeConfiguration
+			}
+			seen[id] = struct{}{}
+		}
+	}
+	return nil
 }
 
 // PatchProbeTask merges fields with committed configuration inside one transaction.
 // It returns the saved task and previous assignments for synchronization/cleanup.
 func (s *Store) PatchProbeTask(ctx context.Context, id string, patch ProbeTaskPatch, now time.Time) (ProbeTask, []string, error) {
+	if err := patch.ValidateAssignments(); err != nil {
+		return ProbeTask{}, nil, err
+	}
 	task, old, _, err := s.mutateProbeTask(ctx, id, now, func(task *ProbeTask) error {
 		if patch.Name != nil {
 			task.Name = *patch.Name
@@ -84,6 +115,26 @@ func (s *Store) PatchProbeTask(ctx context.Context, id string, patch ProbeTaskPa
 		}
 		if patch.NodeIDs != nil {
 			task.NodeIDs = append([]string{}, (*patch.NodeIDs)...)
+		} else if patch.NodeIDsAdd != nil || patch.NodeIDsRemove != nil {
+			assigned := make(map[string]struct{}, len(task.NodeIDs))
+			for _, nodeID := range task.NodeIDs {
+				assigned[nodeID] = struct{}{}
+			}
+			if patch.NodeIDsAdd != nil {
+				for _, nodeID := range *patch.NodeIDsAdd {
+					assigned[nodeID] = struct{}{}
+				}
+			}
+			if patch.NodeIDsRemove != nil {
+				for _, nodeID := range *patch.NodeIDsRemove {
+					delete(assigned, nodeID)
+				}
+			}
+			task.NodeIDs = make([]string, 0, len(assigned))
+			for nodeID := range assigned {
+				task.NodeIDs = append(task.NodeIDs, nodeID)
+			}
+			sort.Strings(task.NodeIDs)
 		}
 		return nil
 	})
@@ -291,7 +342,7 @@ func (s *Store) ProbeSnapshot(ctx context.Context, nodeID string) (ProbeSnapshot
 
 func validateStoredProbe(task ProbeTask, nodeIDs []string) error {
 	if task.Name == "" || len(task.Name) > 128 || len(nodeIDs) > 10000 {
-		return errors.New("invalid probe task configuration")
+		return ErrInvalidProbeConfiguration
 	}
 	return protocol.ValidateProbeTask(protocol.ProbeTask{ID: task.ID, Host: task.Host, Port: task.Port, IntervalSeconds: task.IntervalSeconds})
 }

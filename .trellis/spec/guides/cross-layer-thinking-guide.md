@@ -116,6 +116,11 @@ After implementation:
 - [ ] Tested with edge cases (null, empty, invalid)
 - [ ] Verified error handling at each boundary
 - [ ] Checked data survives round-trip
+- [ ] If a browser submits a complete collection from a snapshot, can enrollment
+      or another writer change it before save? Test the actual request body
+      after that concurrent change; omission support on the server does not
+      help if the UI always sends replacement. Use atomic deltas for explicit
+      choices when untouched members must survive (see backend TCP probe spec).
 - [ ] Checked that consumers import shared decoders / projections instead of
       casting payload fields locally
 - [ ] Checked that derived state points back to the source event identifier

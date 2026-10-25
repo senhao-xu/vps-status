@@ -268,8 +268,23 @@ Validation: unit checks for selection retention, saved draft acknowledgement/old
 - New dialog defaults interval60, all available node IDs, autoJointrue. Editing derives refreshed task by stable ID while uncontrolled draft fields stay mounted; absent/deleted task cannot turn an edit into a create.
 - `ProbeTask.autoJoin` decodes `auto_join` strictly when present, defaultsfalse only for missing legacy field. Writes send bool `auto_join`; legacy server DTO compatibility does not justify silently accepting malformed types.
 - Group filter sentinel cannot collide with group names (including empty/all). Search and group filters never change chosen IDs. Select/deselect shown affect only visible IDs. `probeSelection` merges current default/assigned IDs with explicit boolean overrides, so newly auto-assigned nodes appear while user deselections remain deselected across refresh.
+- `probeAssignmentWrite(task,nodes,overrides)` owns the request assignment
+  projection used by `ProbeTaskDialog`: create sends complete selected
+  `node_ids`; edit sends only explicit `node_ids_add`/`node_ids_remove`, omits
+  empty lists and never sends `node_ids`. Preserve explicit deselections even
+  when the refreshed task no longer includes that ID; additions include only
+  currently available nodes. A name/target/interval/auto-join-only edit sends
+  no assignment fields. Refreshing before save alone cannot prevent enrollment
+  between refresh and mutation; the backend must merge deltas atomically.
 - Compact no-node guidance allows saving for future auto-join; do not display protocol internals such as payload/Banner restrictions in the configuration flow. Failed/pending writes preserve draft, prevent duplicate submission and pending dismissal;409 probe_auto_join_limit has localized actionable feedback.
 - Verification: parser/selection/decoder unit cases; real IPv6 create/edit, group/search hidden-selection preservation, default60/all/true, migrated legacyfalse, real later enrollment and disabled toggle, refreshed assignments vs explicit choice, errors/pending/focus, zh/en and themes at320px.
+- Assignment-write regressions must use the actual helper called by the dialog:
+  stale unchanged edit omits replacement; explicit changes survive refresh and
+  preserve unseen assignments; create still sends the selected complete set.
+  Real browser/API integration opens an edit, enrolls another node without
+  refreshing the snapshot, saves a name-only edit or explicit add/remove, and
+  asserts the new node remains assigned. Disabling auto-join preserves nodes
+  enrolled before commit and excludes later enrollment.
 
 ### Docker Agent installation method
 

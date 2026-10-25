@@ -25,3 +25,13 @@ export function visibleProbeNodes(nodes: Node[], group: string | null, query: st
 export function probeSelection(task: ProbeTask | null, nodes: Node[], overrides: ReadonlyMap<string, boolean>): Set<string> {
   return new Set(nodes.filter((node) => overrides.get(node.id) ?? (task ? task.nodeIds.includes(node.id) : true)).map((node) => node.id))
 }
+
+type ProbeAssignmentWrite = { node_ids: string[] } | { node_ids_add?: string[]; node_ids_remove?: string[] }
+
+// An edit carries only explicit choices, so enrollment after the snapshot remains assigned.
+export function probeAssignmentWrite(task: ProbeTask | null, nodes: Node[], overrides: ReadonlyMap<string, boolean>): ProbeAssignmentWrite {
+  if (!task) return { node_ids: [...probeSelection(null, nodes, overrides)] }
+  const add = nodes.filter((node) => overrides.get(node.id) === true).map((node) => node.id)
+  const remove = [...overrides].filter(([, selected]) => !selected).map(([id]) => id)
+  return { ...(add.length ? { node_ids_add: add } : {}), ...(remove.length ? { node_ids_remove: remove } : {}) }
+}

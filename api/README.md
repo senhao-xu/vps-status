@@ -293,8 +293,19 @@ Create accepts strict JSON `name`, `host`, `port`, `interval_seconds`, and
 `node_ids`, plus optional boolean `auto_join` (default `false` for existing
 callers). Responses always include `auto_join`. Patch accepts the same fields
 optionally, preserves `auto_join` when omitted, and replaces `node_ids`
-as a complete set when present. Mutations require CSRF. A node may have at
-most 64 tasks, intervals are 5–3600 seconds, and ports are 1–65535. DNS names
+as a complete set when present (including `[]` to clear). Alternatively, PATCH
+accepts `node_ids_add` and `node_ids_remove` arrays to apply explicit choices
+against the committed assignment set in the same transaction as configuration
+changes. These changes are idempotent and preserve untouched assignments,
+including nodes automatically joined after an editor loaded. An added node must
+be active; removing an already absent assignment succeeds. Omitted or empty
+delta arrays leave that part unchanged. Duplicate/overlapping IDs, malformed
+IDs and combining `node_ids` with either delta array (even empty) return
+`400 invalid_input` without saving any configuration or advancing the snapshot
+version. The editor uses deltas for changes and omits assignments when untouched;
+new task creation still sends the full selected list. Mutations require CSRF.
+A node may have at most 64 tasks, intervals are 5–3600 seconds, and ports are
+1–65535. DNS names
 and public/private/loopback IP literals are allowed; unspecified and multicast
 addresses are rejected. The per-node quota error is `409 probe_task_limit`.
 At most 64 definitions can enable `auto_join`; exceeding that limit returns
@@ -302,8 +313,8 @@ At most 64 definitions can enable `auto_join`; exceeding that limit returns
 version. Enrollment atomically assigns enabled tasks to the new node and
 advances the snapshot version once if assignments exist. Toggling `auto_join`
 only affects future enrollment: existing assignments change solely through
-explicit `node_ids` or assignment requests. Existing tasks migrate with
-`auto_join=false`; this field never enters the Agent protocol.
+explicit `node_ids`, assignment deltas or assignment requests. Existing tasks
+migrate with `auto_join=false`; this field never enters the Agent protocol.
 
 After Agent hello, Control sends a strongly typed, versioned `probe.sync`
 complete snapshot. Agent treats it as untrusted: it never clamps invalid

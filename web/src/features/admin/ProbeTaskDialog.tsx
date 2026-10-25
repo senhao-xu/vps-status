@@ -3,7 +3,7 @@ import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { APIError, apiMutation, errorMessage } from '../../api/client'
 import type { Node, ProbeTask } from '../../api/contracts'
 import { useI18n } from '../../i18n'
-import { parseProbeTarget, probeSelection, visibleProbeNodes } from './probeConfiguration'
+import { parseProbeTarget, probeAssignmentWrite, probeSelection, visibleProbeNodes } from './probeConfiguration'
 import { probeTarget } from './probePresentation'
 import { SettingsDialog } from './SettingsDialog'
 
@@ -44,7 +44,7 @@ export function ProbeTaskDialog({ task, nodes, onClose, onSaved, onUnauthorized 
     try {
       await apiMutation(task ? `/api/v1/admin/probes/${encodeURIComponent(task.id)}` : '/api/v1/admin/probes', {
         method: task ? 'PATCH' : 'POST', signal: controller.signal,
-        body: { name, ...target, auto_join: autoJoin, interval_seconds: interval, node_ids: nodes.filter((node) => chosen.has(node.id)).map((node) => node.id) },
+        body: { name, ...target, auto_join: autoJoin, interval_seconds: interval, ...probeAssignmentWrite(task, nodes, selection) },
       })
       if (!controller.signal.aborted) onSaved(task !== null)
     } catch (caught) {
