@@ -91,6 +91,19 @@ func TestEnrollUsesAuthorizationHeaderAndConfigPermissions(t *testing.T) {
 	}
 }
 
+func TestEnrollAcceptsDocumentedControlResponse(t *testing.T) {
+	client := &http.Client{Transport: roundTripperFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusCreated, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"node_id":"node-1","node_name":"Local test node","credential":"node-secret","websocket_path":"/agent/v1/ws"}`))}, nil
+	})}
+	config, err := Enroll(t.Context(), client, "http://127.0.0.1:8080", "enrollment-secret")
+	if err != nil {
+		t.Fatalf("enroll with documented Control response: %v", err)
+	}
+	if config.ControlURL != "http://127.0.0.1:8080" || config.NodeID != "node-1" || config.Credential != "node-secret" {
+		t.Fatal("documented Control response did not produce the expected Agent config")
+	}
+}
+
 type roundTripperFunc func(*http.Request) (*http.Response, error)
 
 func (function roundTripperFunc) RoundTrip(request *http.Request) (*http.Response, error) {
@@ -106,14 +119,27 @@ func TestEnrollBoundsAndStrictlyDecodesResponseWithoutRedirecting(t *testing.T) 
 			t.Fatalf("oversized response error=%v", err)
 		}
 	})
-	t.Run("unknown field", func(t *testing.T) {
-		client := &http.Client{Transport: roundTripperFunc(func(*http.Request) (*http.Response, error) {
-			return &http.Response{StatusCode: http.StatusCreated, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"node_id":"node","credential":"secret","extra":true}`))}, nil
-		})}
-		if _, err := Enroll(t.Context(), client, "http://127.0.0.1", "secret"); err == nil {
-			t.Fatal("response with unknown field was accepted")
-		}
-	})
+	for _, test := range []struct {
+		name string
+		body string
+	}{
+		{"unknown field", `{"node_id":"node","credential":"secret","extra":true}`},
+		{"numeric node name", `{"node_id":"node","credential":"secret","node_name":123}`},
+		{"object node name", `{"node_id":"node","credential":"secret","node_name":{}}`},
+		{"boolean websocket path", `{"node_id":"node","credential":"secret","websocket_path":true}`},
+		{"array websocket path", `{"node_id":"node","credential":"secret","websocket_path":[]}`},
+		{"trailing JSON", `{"node_id":"node","node_name":"Local test node","credential":"secret","websocket_path":"/agent/v1/ws"} {}`},
+		{"trailing garbage", `{"node_id":"node","credential":"secret"} invalid`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			client := &http.Client{Transport: roundTripperFunc(func(*http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusCreated, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(test.body))}, nil
+			})}
+			if config, err := Enroll(t.Context(), client, "http://127.0.0.1", "secret"); err == nil || config != (Config{}) {
+				t.Fatalf("invalid response error=%v; empty config=%v", err, config == (Config{}))
+			}
+		})
+	}
 	t.Run("redirect", func(t *testing.T) {
 		calls := 0
 		client := &http.Client{Transport: roundTripperFunc(func(request *http.Request) (*http.Response, error) {

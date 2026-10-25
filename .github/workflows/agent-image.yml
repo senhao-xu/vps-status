@@ -1,0 +1,72 @@
+name: Agent image
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Test Agent before publication
+        run: |
+          go test ./cmd/agent ./internal/agent ./internal/protocol ./tests/enrollment
+          go vet ./cmd/agent ./internal/agent
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image metadata
+        id: metadata
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/vps-status-agent
+          tags: |
+            type=sha,format=long
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')) }}
+      - name: Build version
+        id: version
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            echo "value=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=sha-$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and publish Linux Agent
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile.agent
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: |
+            ${{ steps.metadata.outputs.labels }}
+            org.opencontainers.image.version=${{ steps.version.outputs.value }}
+          build-args: |
+            VERSION=${{ steps.version.outputs.value }}
+            COMMIT=${{ github.sha }}
+          cache-from: type=gha,scope=agent-image
+          cache-to: type=gha,mode=max,scope=agent-image

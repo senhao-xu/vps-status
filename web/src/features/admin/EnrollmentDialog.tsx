@@ -6,7 +6,8 @@ import { formatTime } from '../../format'
 import { useI18n, type TranslationKey } from '../../i18n'
 import { startEnrollmentPolling } from './enrollmentPolling'
 import { revokeEnrollment } from './enrollmentActions'
-import { resolveInstallationAddress } from './installationAddress'
+import { dockerInstallCommand } from './dockerInstallation'
+import { localInstallationAddress, resolveInstallationAddress } from './installationAddress'
 
 const statusCopy: Record<EnrollmentStatus['status'], { title: TranslationKey; description: TranslationKey }> = {
   pending: { title: 'installationPending', description: 'pendingDescription' },
@@ -29,14 +30,20 @@ export function EnrollmentDialog({ onClose, onOnline, onViewNode, onUnauthorized
   const [configState, setConfigState] = useState<'loading' | 'ready' | 'error'>('loading')
   const [configRevision, setConfigRevision] = useState(0)
   const translation = useRef(t)
-  const url = config ? resolveInstallationAddress(config, typeof window === 'undefined' ? '' : window.location.origin) : null
-  const [command, setCommand] = useState<Enrollment | null>(null)
+  const [localTest, setLocalTest] = useState(false)
+  const origin = typeof window === 'undefined' ? '' : window.location.origin
+  const localAddress = config && !config.controlUrl ? localInstallationAddress(origin) : null
+  const url = config ? resolveInstallationAddress(config, origin, localTest) : null
+  const [command, setCommand] = useState<(Enrollment & { controlUrl: string }) | null>(null)
+  const [installMethod, setInstallMethod] = useState<'systemd' | 'docker'>('systemd')
   const [status, setStatus] = useState<EnrollmentStatus | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [copy, setCopy] = useState('')
   const [pollRevision, setPollRevision] = useState(0)
+  const dockerCommand = command ? dockerInstallCommand(command, command.controlUrl) : null
+  const selectedCommand = installMethod === 'docker' ? dockerCommand : command?.installCommand
   const terminal = status?.status === 'online' || status?.status === 'expired'
 
   useEffect(() => { translation.current = t }, [t])
@@ -106,7 +113,7 @@ export function EnrollmentDialog({ onClose, onOnline, onViewNode, onUnauthorized
         method: 'POST', signal: request.signal, body: { node_name: name, control_url: url, expires_in_seconds: 3600 },
       })
       if (request.signal.aborted) return
-      setCommand(next); setStatus({ id: next.id, nodeName: name, expiresAt: next.expiresAt, status: 'pending' })
+      setCommand({ ...next, controlUrl: url }); setStatus({ id: next.id, nodeName: name, expiresAt: next.expiresAt, status: 'pending' })
     } catch (caught) { if (!request.signal.aborted) handleError(caught) }
     finally { if (controller.current === request) controller.current = null; if (!request.signal.aborted) setBusy(false) }
   }
@@ -126,8 +133,8 @@ export function EnrollmentDialog({ onClose, onOnline, onViewNode, onUnauthorized
     } finally { if (controller.current === request) controller.current = null; if (!request.signal.aborted) setBusy(false) }
   }
   const copyCommand = async () => {
-    if (!command) return
-    try { await navigator.clipboard.writeText(command.installCommand); setCopy(t('installCommandCopied')) }
+    if (!selectedCommand) return
+    try { await navigator.clipboard.writeText(selectedCommand); setCopy(t('installCommandCopied')) }
     catch { setCopy(t('copyCommandFailed')) }
   }
   const submit = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); void create() }
@@ -143,6 +150,7 @@ export function EnrollmentDialog({ onClose, onOnline, onViewNode, onUnauthorized
       {configState === 'loading' && <p className="full muted" role="status">{t('loadingInstallation')}</p>}
       {configState === 'error' && <button type="button" className="full" onClick={() => setConfigRevision((value) => value + 1)}>{t('retryInstallation')}</button>}
       {configState === 'ready' && config && <div className="full installation-context">
+        {localAddress && <><label className="check"><input name="local_test" type="checkbox" checked={localTest} disabled={busy} aria-describedby="local-installation-help" onChange={(event) => setLocalTest(event.target.checked)} />{t('localInstallationOnly')}</label><p id="local-installation-help" className="muted">{t('localInstallationHelp')}</p></>}
         {url ? <><p className="muted">{t('installConnectionSummary')}</p><dl className="installation-config-summary"><div><dt>{t('nodeConnectionUrl')}</dt><dd>{url}</dd></div><div><dt>{t('effectiveAgentVersion')}</dt><dd>{config.effectiveAgentReleaseVersion}</dd></div></dl></> : <p className="notice warning">{t('connectionAddressRequired')}</p>}
         {!config.releaseConfigured && <p className="notice warning">{t('agentReleaseRequired')}</p>}
         <button type="button" className="settings-link" onClick={onOpenSettings}>{t('openInstallationSettings')}</button>
@@ -150,9 +158,14 @@ export function EnrollmentDialog({ onClose, onOnline, onViewNode, onUnauthorized
       <div className="full dialog-actions"><button type="button" onClick={onClose}>{t('close')}</button><button className="primary" disabled={busy || configState !== 'ready' || !url || !config?.releaseConfigured}>{busy ? t('installInProgress') : t('createInstallCommand')}</button></div>
     </form> : <div className="installation-result">
       <div className={`installation-state ${phase}`} role="status"><span className="installation-dot" aria-hidden="true" /><div><strong>{t(statusCopy[phase].title)}</strong><p>{t(statusCopy[phase].description)}</p></div></div>
-      <h3>{t('runInstallCommand')}</h3><p className="muted">{t('oneCommandInstall')}</p>
-      <pre className="install-command" tabIndex={0}><code>{command.installCommand}</code></pre>
-      <div className="command-meta"><button type="button" disabled={busy || phase === 'expired'} onClick={() => void copyCommand()}>{t('copyInstallCommand')}</button><span>{t('expires', { time: formatTime(command.expiresAt, language) })}</span></div>
+      <fieldset className="installation-methods"><legend>{t('installationMethod')}</legend>
+        <label className="check"><input type="radio" name="installation_method" value="systemd" checked={installMethod === 'systemd'} onChange={() => { setInstallMethod('systemd'); setCopy('') }} />{t('systemdInstallMethod')}</label>
+        <label className="check"><input type="radio" name="installation_method" value="docker" checked={installMethod === 'docker'} disabled={!dockerCommand} onChange={() => { setInstallMethod('docker'); setCopy('') }} />{t('dockerInstallMethod')}</label>
+      </fieldset>
+      {!dockerCommand && <p className="notice warning">{t('dockerCommandUnavailable')}</p>}
+      <h3>{t('runInstallCommand')}</h3><p className="muted">{t(installMethod === 'docker' ? 'dockerInstallHelp' : 'oneCommandInstall')}</p>
+      <pre className="install-command" tabIndex={0}><code>{selectedCommand}</code></pre>
+      <div className="command-meta"><button type="button" disabled={busy || phase === 'expired' || !selectedCommand} onClick={() => void copyCommand()}>{t('copyInstallCommand')}</button><span>{t('expires', { time: formatTime(command.expiresAt, language) })}</span></div>
       {copy && <p role="status">{copy}</p>}<p className="muted">{t('commandOnce')}</p>
       <details><summary>{t('manualEnrollCommand')}</summary><pre className="install-command"><code>{command.enrollCommand}</code></pre></details>
       <div className="button-row">

@@ -22,6 +22,7 @@ type Client struct {
 	Dialer       *websocket.Dialer
 	WriteTimeout time.Duration
 	Collector    Collector
+	SourcePaths  SourcePaths
 	Now          func() time.Time
 	ProbeConfig  ProbeSchedulerConfig
 }
@@ -85,7 +86,7 @@ func (c *Client) ConnectOnce(ctx context.Context) error {
 	if protocol.DecodePayload(envelope.Payload, &hello) != nil || hello.ServerNonce == "" || hello.NodeID != c.Config.NodeID {
 		return errors.New("Control hello is invalid")
 	}
-	facts := CollectHostFacts()
+	facts := CollectHostFactsWithPaths(c.SourcePaths)
 	if facts.Hostname == "" {
 		facts.Hostname, _ = os.Hostname()
 	}
@@ -118,7 +119,7 @@ func (c *Client) ConnectOnce(ctx context.Context) error {
 	serverSequence := envelope.Seq
 	collector := c.Collector
 	if collector == nil {
-		collector = NewCollector()
+		collector = NewCollectorWithPaths(c.SourcePaths)
 	}
 	reportErrors := make(chan error, 1)
 	reportContext, stopReports := context.WithCancel(ctx)

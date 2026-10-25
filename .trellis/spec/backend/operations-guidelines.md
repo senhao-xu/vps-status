@@ -111,6 +111,85 @@ points at GitHub Releases.
 Correct: verify `SHA256SUMS`, retain the Actions Artifact for CI evidence, and
 create or update the matching GitHub Release with the complete `dist/*` set.
 
+## Scenario: Docker Agent and GHCR
+
+### 1. Scope / Trigger
+
+Use when changing Agent images, host mounts, container registration, GHCR
+publication or the generated Docker command.
+
+### 2. Signatures
+
+- Image: `ghcr.io/senhao-xu/vps-status-agent:latest`.
+- CLI: `--config`, `--proc-root`, `--sys-root`, `--rootfs`, `--os-release`.
+- Compose override: optional `VPS_STATUS_AGENT_IMAGE`; no persisted token env.
+- Enrollment: `enroll --control-url URL --token TOKEN --config /data/agent.json`.
+
+### 3. Contracts
+
+- `deploy/Dockerfile.agent` cross-compiles CGO-free Linux amd64/arm64 on the
+  build platform. Preserve BuildKit automatic `TARGETOS`/`TARGETARCH`; defaults
+  inside the build stage can silently turn an arm64 image into an amd64 binary.
+- Distroless static nonroot has CA roots and UID/GID65532; `/data` must be
+  explicitly copied mode0700 and owned by that user. Verify final image/volume
+  permissions: source-directory permissions alone may not survive `COPY`.
+- Enrollment runs once in a removable container and writes mode0600
+  `/data/agent.json` into a persistent named volume. Runtime reuses the volume
+  without enrollment token in its command or environment.
+- Runtime uses host network/PID/UTS, all capabilities dropped,
+  no-new-privileges and read-only root. Host `/proc`, `/sys`, `/` and resolved
+  `/etc/os-release` bind to `/host/proc`, `/host/sys`, `/host/root` and
+  `/host/os-release`, read-only. Root bind is nonrecursive; never mount the
+  Docker socket or require privileged mode. CLI defaults in the image select
+  those paths. Host permissions can still make individual metrics unavailable.
+- `deploy/docker-compose.agent.yml` provides profile-gated enrollment and
+  runtime sharing a volume; only start runtime after enrollment succeeds.
+  Compose must support `bind.recursive: disabled` (CI pins5.5.0).
+- `.github/workflows/agent-image.yml` tests then publishes multiarch GHCR
+  images using job-scoped `GITHUB_TOKEN` packages:write. Record source/version,
+  commit-derived and stable version tags; never use operator OAuth credentials
+  in image layers. Binary Release assets remain a separate workflow.
+- Publication success and anonymous access are separate checks: verify the
+  manifest architectures and anonymous pull before advertising public access.
+
+### 4. Validation & Error Matrix
+
+| Condition | Expected result |
+| --- | --- |
+| Relative or empty explicit source flag | CLI exit2 before config/network |
+| Unreadable selected kernel source | Partial unavailable report; no native fallback |
+| Expired/consumed enrollment token |401; `&&` prevents runtime start |
+| Wrong credential permissions | Agent rejects config |
+| Docker lacks nonrecursive-bind support | Installation fails; no privileged fallback |
+| Image published but package private | Anonymous pull fails; report visibility separately |
+
+### 5. Good / Base / Bad Cases
+
+- Good: transient nonroot enrollment writes one credential, runtime restarts as
+  the same node and reports host capacity/identity.
+- Base: native binary defaults remain the current Linux paths.
+- Bad: container OS/root disk or an amd64 ELF is shipped under an arm64 manifest.
+
+### 6. Tests Required
+
+- Fixture and actual websocket tests prove report and hello source overrides,
+  native defaults and explicitly missing-source behavior.
+- Inspect both built ELF architectures; verify final-image and copied volume
+  directory0700/file0600/owner65532, read-only host mounts, nonrecursive root,
+  no capabilities/token at runtime, enrollment replay401 and restart continuity.
+- Execute the generated command against isolated Control; verify selected-copy,
+  one POST on method switching, polling, zh/en/theme/mobile and secret cleanup.
+- Actionlint, Compose normalization, image builds, multiarch registry manifests
+  and actual anonymous pulls. Publication is not an access test.
+
+### 7. Wrong vs Correct
+
+Wrong: pass `--token` to the persistent container or bind only `/proc` while
+leaving hello OS facts and root statfs pointed at the image.
+
+Correct: enroll in a removable container into a persistent private volume;
+run without a token and select host sources for both hello and reports.
+
 ## Backup boundary
 
 - Default backups include `control.db` and the paired `master.key`.

@@ -38,7 +38,11 @@ The runtime boundaries are:
 ```go
 type Collector interface { Collect(time.Time) (protocol.Report, error) }
 func NewCollector() Collector
+func NewCollectorWithPaths(SourcePaths) Collector
+func DefaultSourcePaths() SourcePaths
+func (SourcePaths) Validate() error
 func CollectHostFacts() HostFacts
+func CollectHostFactsWithPaths(SourcePaths) HostFacts
 
 func NewLiveStore() *LiveStore
 func (*LiveStore) Snapshot(nodeID string) LiveSnapshot
@@ -84,6 +88,18 @@ Control schema v3 adds only `group_name`, `hidden`, `hostname`, `os`,
   in `user`/`nice`. Process directories are counted in fixed-size batches.
   Counter decreases and newly appearing interfaces contribute zero rate for
   that interval rather than underflowing.
+
+- Operator-local `SourcePaths` selects proc root, sys root, root filesystem and
+  OS-release file. CLI defaults are `/proc`, `/sys`, `/`, `/etc/os-release`;
+  the flags require absolute paths but do not require sources to be readable.
+  `Client.SourcePaths` must drive both collector reports and hello facts.
+  An explicitly selected missing source must never fall back to container/native
+  paths. Paths are not persisted in Agent credential JSON or sent as protocol
+  configuration. Native wrappers retain their defaults.
+- Docker host collection uses separate read-only host sources, host network/PID/UTS
+  and a nonrecursive root bind. Verify host OS, hostname, memory, root statfs and
+  restart continuity with an actual container; container-only fixtures cannot
+  establish that these facts describe the host.
 
 ### Control live state
 

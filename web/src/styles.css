@@ -106,6 +106,7 @@ body { margin: 0; min-width: 320px; min-height: 100vh; }
 button, input, select, textarea { color: inherit; font: inherit; }
 button, input, select, textarea, a { outline-offset: 3px; }
 :focus-visible { outline: 3px solid var(--accent); }
+input:not([type="checkbox"]):not([type="radio"]):focus-visible, select:focus-visible, textarea:focus-visible { outline-offset: -3px; }
 a { color: var(--link); }
 button, .homepage-button { min-height: 2.7rem; padding: .65rem .9rem; border: 1px solid var(--line); border-radius: .7rem; background: var(--button); cursor: pointer; }
 button:hover:not(:disabled), .homepage-button:hover { border-color: var(--button-hover-line); background: var(--button-hover); }
@@ -253,6 +254,9 @@ th, td { padding: .45rem; border-bottom: 1px solid var(--line); text-align: left
 .installation-state { display: flex; align-items: flex-start; gap: .75rem; padding: 1rem; border: 1px solid var(--nav-active-line); border-radius: .5rem; background: var(--nav-active); }.installation-state strong { font-size: .9rem; }.installation-state p { color: var(--muted); margin-top: .25rem; }
 .installation-dot { width: .6rem; height: .6rem; margin-top: .3rem; flex-shrink: 0; border-radius: 50%; background: var(--warning); }.installation-state.online .installation-dot { background: var(--success); }.installation-state.expired .installation-dot { background: var(--danger); }
 .install-command { margin: 0; padding: 1rem; max-height: 12rem; overflow: auto; border: 1px solid var(--line); border-radius: .5rem; background: var(--surface); white-space: pre-wrap; overflow-wrap: anywhere; font-size: .78rem; line-height: 1.7; user-select: all; }
+.installation-methods { display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; margin: 0; padding: .75rem 1rem; min-width: 0; border: 1px solid var(--line); border-radius: .5rem; }
+.installation-methods legend { padding: 0 .25rem; font-weight: 600; font-size: .85rem; }
+.installation-methods .check { margin: 0; }
 .command-meta { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .5rem; }.command-meta span { color: var(--muted); font-size: .75rem; }
 .enrollment-dialog .notice button { display: block; margin-top: .5rem; }
 
@@ -316,7 +320,8 @@ th, td { padding: .45rem; border-bottom: 1px solid var(--line); text-align: left
 .installation-context { padding: 1rem; border: 1px solid var(--line); border-radius: .5rem; background: var(--surface); }
 .installation-context > * + * { margin-top: .85rem; }
 .installation-context p { font-size: .8rem; line-height: 1.6; margin-bottom: 0; }
-.settings-link { font-size: .8rem; padding: .3rem 0; min-height: 2rem; border: 0; background: transparent; color: var(--link); }
+.settings-link { font-size: .8rem; padding: .4rem .7rem; min-height: 2rem; border: 1px solid var(--link); background: transparent; color: var(--link); }
+.settings-link:hover:not(:disabled), .settings-link:focus-visible:not(:disabled) { border-color: color-mix(in srgb, var(--accent-strong) 85%, black); background: color-mix(in srgb, var(--accent-strong) 85%, black); color: var(--on-accent); }
 .notice.warning { border-color: color-mix(in srgb, var(--warning) 40%, var(--line)); color: var(--warning-text); }
 @media (max-width: 420px) {
   .dialog-actions { align-items: stretch; flex-direction: column-reverse; }
