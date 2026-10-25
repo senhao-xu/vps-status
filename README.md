@@ -124,7 +124,7 @@ TLS 反向代理、备份/恢复以及 Agent 的 systemd/Docker 安装说明见
 
 ## Source development requirements
 
-- Go 1.24 or newer
+- Go 1.25 or newer (the repository selects the patched Go 1.27.3 toolchain)
 - Node.js 22 or newer
 - pnpm 10
 

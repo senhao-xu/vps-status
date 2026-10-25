@@ -138,7 +138,11 @@ The image is hosted on GitHub Container Registry:
 `ghcr.io/senhao-xu/vps-status-agent:latest`. GitHub Actions publishes both
 architectures with OCI source/version labels. Use an immutable digest or a
 published version tag for a pinned deployment; `latest` follows the latest
-published build. The systemd release override in Installation settings does
+published build. On first publication, the package owner must set the package visibility to
+**Public** in GitHub Package settings before anonymous pulls work. Repository
+access inheritance alone does not make a new package public.
+
+The systemd release override in Installation settings does
 not select the Docker image tag. Existing address and enrollment-release
 eligibility checks still apply to command generation.
 

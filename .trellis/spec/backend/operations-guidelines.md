@@ -127,6 +127,12 @@ publication or the generated Docker command.
 
 ### 3. Contracts
 
+- Go builds select patched toolchain1.27.3; both Docker build stages pin
+  `golang:1.27.3-bookworm`. The module minimum is1.25 because the fixed
+  `x/crypto`0.55 and required `x/sys`0.47 require it. Security uses compatible
+  govulncheck1.9 and an explicit compiler version. Recheck reachable-package
+  and final-image scans separately; module-level scanner findings can include
+  code omitted by the linker, but new images must pass the required scan.
 - `deploy/Dockerfile.agent` cross-compiles CGO-free Linux amd64/arm64 on the
   build platform. Preserve BuildKit automatic `TARGETOS`/`TARGETARCH`; defaults
   inside the build stage can silently turn an arm64 image into an amd64 binary.
