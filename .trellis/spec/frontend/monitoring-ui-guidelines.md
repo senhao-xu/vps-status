@@ -63,7 +63,13 @@ administrator `EventSource` lifecycle.
 - The add-node form asks only for a display name. Load and strictly decode
   administrator installation settings; prefer saved entry to the current
   browser origin. Automatic localhost/loopback/non-HTTPS addresses or missing
-  eligible release show settings guidance and disable command creation.
+  eligible release show settings guidance and disable command creation. With
+  blank saved settings and a valid loopback origin, expose an unchecked,
+  memory-only “Local testing only” choice. Only explicit selection permits a
+  canonical local HTTP/HTTPS address through `control_url`; explain that the
+  Agent must run on the same computer as the browser. Disable this choice
+  while a mutation is pending. It does not relax shared remote defaults,
+  arbitrary remote HTTP, release eligibility or saved-address priority.
   Settings require an authenticated GET/PUT and persist defaults server-side,
   not in browser storage. Blank URL/version restore browser/startup defaults.
 - Installation config must expose saved values separately from the effective
@@ -264,3 +270,21 @@ Validation: unit checks for selection retention, saved draft acknowledgement/old
 - Group filter sentinel cannot collide with group names (including empty/all). Search and group filters never change chosen IDs. Select/deselect shown affect only visible IDs. `probeSelection` merges current default/assigned IDs with explicit boolean overrides, so newly auto-assigned nodes appear while user deselections remain deselected across refresh.
 - Compact no-node guidance allows saving for future auto-join; do not display protocol internals such as payload/Banner restrictions in the configuration flow. Failed/pending writes preserve draft, prevent duplicate submission and pending dismissal;409 probe_auto_join_limit has localized actionable feedback.
 - Verification: parser/selection/decoder unit cases; real IPv6 create/edit, group/search hidden-selection preservation, default60/all/true, migrated legacyfalse, real later enrollment and disabled toggle, refreshed assignments vs explicit choice, errors/pending/focus, zh/en and themes at320px.
+
+### Docker Agent installation method
+
+- Installation result selects systemd(default) or Docker without creating a
+  second enrollment, replacing the secret, or restarting status polling.
+  Capture the resolved Control URL with the successful enrollment response;
+  later presentation state cannot change a minted command's destination.
+- `dockerInstallation.ts` owns the GHCR image and POSIX-quoted command. Full
+  validated enrollment ID makes distinct container/volume names; reject invalid
+  IDs rather than collapsing identities by sanitizing/truncating them.
+- Chain pull, volume creation, one-shot enrollment and persistent runtime with
+  `&&`. Only the transient enrollment gets the token; runtime uses the same
+  credential volume and the agreed host mounts/namespaces/hardening.
+- Copy follows the selected method; command and secrets stay in dialog memory.
+  Preserve local-test/address/release guards, revoke/regenerate/manual paths,
+  errors and terminal statuses. Verify switching/copy/no extra POST/polling in
+  a real browser plus zh/en, themes and320px. Shell tests must observe actual
+  argv and prove failed enrollment never launches the persistent runtime.

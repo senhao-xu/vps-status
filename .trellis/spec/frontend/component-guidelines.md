@@ -18,6 +18,7 @@
 
 - Use semantic elements and accessible names. The foundation screen demonstrates `<main>`, `<section>`, and `aria-labelledby` in `App.tsx`.
 - Every interactive control must work by keyboard and expose a visible focus state.
+- Keep text-input, select and textarea focus outlines within the control border (`outline-offset: -3px` for the shared 3px outline), so nearby labels and summaries remain readable. Preserve visible outer focus indicators on checkbox/radio controls, buttons and links.
 - Form inputs require labels and error text connected with `aria-describedby` where applicable.
 - Charts require a textual summary/table alternative for the current value and failure state.
 - Do not communicate online/offline/severity by color alone.
@@ -27,6 +28,7 @@
 - Current styling is plain CSS with tokens in `:root`; no CSS framework or CSS-in-JS library is established.
 - Keep layout responsive from the 320px minimum shown in `styles.css`.
 - Reuse CSS custom properties for stable colors/spacing before duplicating magic values across feature styles.
+- Settings navigation actions need a visible resting boundary and a distinct hover/keyboard-focus treatment; a barely tinted background alone is insufficient. Use theme tokens with readable contrasting text and keep border widths/padding stable between states.
 - Adding a styling framework is a design change, not an incidental component dependency.
 
 ### Localization and themes
