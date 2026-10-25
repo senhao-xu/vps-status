@@ -30,7 +30,11 @@ Configure the shared node HTTPS entry and optional Agent release override in
 the administrator **Installation settings** page. When the entry is blank,
 the browser's current HTTPS address is used; a localhost/tunnel entry requires
 an explicit address reachable by the remote nodes. Adding a node then asks
-only for its name.
+only for its name. For local testing with blank settings and a loopback page
+address, select **Local testing only** in the add-node dialog. This
+explicitly uses the current local address for an Agent on the same computer;
+remote servers still need a reachable HTTPS entry. It does not change the
+shared installation settings.
 
 The generated command downloads `bootstrap-agent.sh` directly from the pinned
 GitHub Release (or the configured HTTPS release mirror), detects Linux amd64/arm64, verifies the Agent,
@@ -120,6 +124,83 @@ sudo systemctl start vps-status-agent
 
 Do not pass the replacement credential directly on a command line because it
 can be visible in process listings and shell history.
+
+## Agent with Docker
+
+The administrator add-node dialog offers **systemd** and **Docker** after
+creating an enrollment. Switching the method reuses the same one-time token
+and installation status. Select Docker and copy the whole command onto the
+Linux host to monitor. Docker Engine with host network/PID/UTS support is
+required; this deployment targets Linux amd64 and arm64. Docker Desktop on
+Windows/macOS monitors its Linux VM rather than the desktop host.
+
+The image is hosted on GitHub Container Registry:
+`ghcr.io/senhao-xu/vps-status-agent:latest`. GitHub Actions publishes both
+architectures with OCI source/version labels. Use an immutable digest or a
+published version tag for a pinned deployment; `latest` follows the latest
+published build. On first publication, the package owner must set the package visibility to
+**Public** in GitHub Package settings before anonymous pulls work. Repository
+access inheritance alone does not make a new package public.
+
+The systemd release override in Installation settings does
+not select the Docker image tag. Existing address and enrollment-release
+eligibility checks still apply to command generation.
+
+The generated command pulls the image, creates a distinct named data volume,
+runs enrollment once in a temporary container, and starts a persistent Agent
+only if enrollment succeeds. The runtime has no enrollment token in its
+arguments or environment. Its node credential lives in `/data/agent.json`
+(mode 0600, directory 0700, owned by UID/GID 65532). Preserve this volume
+across restarts and upgrades; a lost volume requires a new enrollment. The
+copied enrollment command itself contains a short-lived secret and can remain
+in shell history.
+
+The Agent runs as a non-root user with a read-only container filesystem, all
+capabilities dropped and `no-new-privileges`. It shares the host network,
+PID and UTS namespaces and reads these host bind mounts:
+
+| Host source | Container destination | Purpose |
+| --- | --- | --- |
+| `/proc` | `/host/proc` | CPU, memory, uptime, processes, network, boot ID |
+| `/sys` | `/host/sys` | Host hardware/virtualization facts |
+| `/` | `/host/root` | Host root filesystem usage; nonrecursive bind |
+| `/etc/os-release` | `/host/os-release` | Resolved host OS identity |
+
+Every host mount is read-only. The nonrecursive root bind avoids importing
+other host mounts; `/proc` and `/sys` are provided separately. Docker Engine
+must support `bind-recursive=disabled` (Engine 25 or newer is recommended).
+Host access restrictions such as hidepid or unreadable kernel files can
+leave individual metrics unavailable. No Docker socket or privileged mode is
+needed. This is host monitoring, not a per-container metrics inventory.
+
+For Compose, use `deploy/docker-compose.agent.yml` (a current Compose version
+supporting `bind.recursive: disabled` is required):
+
+```bash
+export VPS_STATUS_AGENT_IMAGE=ghcr.io/senhao-xu/vps-status-agent:latest
+sudo -E docker compose -f deploy/docker-compose.agent.yml pull agent
+sudo -E docker compose -f deploy/docker-compose.agent.yml --profile enroll run --rm enroll \
+  enroll --control-url https://monitor.example.com --token ONE_TIME_ENROLLMENT_TOKEN \
+  --config /data/agent.json
+sudo -E docker compose -f deploy/docker-compose.agent.yml up -d agent
+sudo -E docker compose -f deploy/docker-compose.agent.yml logs --tail=50 agent
+```
+
+Run `up` only after enrollment succeeds. Choose a distinct Compose project
+name (`-p NAME` on every invocation) when registering another Agent on the
+same Docker host. Do not re-enroll an already configured volume. For an
+upgrade, pull the selected image and recreate only the runtime service:
+
+```bash
+sudo -E docker compose -f deploy/docker-compose.agent.yml pull agent
+sudo -E docker compose -f deploy/docker-compose.agent.yml up -d --no-deps agent
+```
+
+`docker compose down` preserves the credential volume; `down -v` destroys it.
+Native binary collection defaults remain `/proc`, `/sys`, `/`, and
+`/etc/os-release`. The image supplies `--proc-root`, `--sys-root`, `--rootfs`
+and `--os-release` to select the mounted host paths; overrides must be absolute
+local paths. The same sources drive hello facts and periodic reports.
 
 ## Backup and verified restore
 

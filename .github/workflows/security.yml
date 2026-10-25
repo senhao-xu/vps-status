@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version-file: go.mod
+          go-version: 1.27.3
       - uses: pnpm/action-setup@v4
         with:
           version: 10.18.0
@@ -26,7 +26,9 @@ jobs:
           node-version: 22
       - run: pnpm --dir web install --frozen-lockfile
       - name: Go vulnerability database
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+        run: |
+          go version
+          go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
       - name: Production web dependencies
         run: pnpm --dir web audit --prod
       - name: Filesystem and configuration scan
@@ -49,6 +51,15 @@ jobs:
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           image-ref: vps-status-control:scan
+          scanners: vuln,secret
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+      - name: Build Agent runtime image
+        run: docker build -f deploy/Dockerfile.agent -t vps-status-agent:scan .
+      - name: Scan Agent runtime image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: vps-status-agent:scan
           scanners: vuln,secret
           severity: HIGH,CRITICAL
           exit-code: "1"

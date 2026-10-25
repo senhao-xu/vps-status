@@ -39,6 +39,7 @@ type linuxSource struct {
 	procRoot       string
 	sysRoot        string
 	rootPath       string
+	osReleasePath  string
 	readFile       func(string, int64) ([]byte, error)
 	countProcesses func(string, uint64) (uint64, error)
 	statFS         func(string) (fileSystemStats, error)
@@ -56,11 +57,20 @@ type LinuxCollector struct {
 }
 
 // NewCollector creates the Linux read-only collector used in production.
-func NewCollector() Collector { return newLinuxCollector(defaultLinuxSource()) }
+func NewCollector() Collector { return NewCollectorWithPaths(SourcePaths{}) }
 
-func defaultLinuxSource() linuxSource {
+// NewCollectorWithPaths creates a collector using local source overrides.
+// Unspecified paths retain the native defaults.
+func NewCollectorWithPaths(paths SourcePaths) Collector {
+	return newLinuxCollector(linuxSourceWithPaths(paths))
+}
+
+func defaultLinuxSource() linuxSource { return linuxSourceWithPaths(SourcePaths{}) }
+
+func linuxSourceWithPaths(paths SourcePaths) linuxSource {
+	paths = paths.withDefaults()
 	return linuxSource{
-		procRoot: "/proc", sysRoot: "/sys", rootPath: "/",
+		procRoot: paths.ProcRoot, sysRoot: paths.SysRoot, rootPath: paths.RootFS, osReleasePath: paths.OSRelease,
 		readFile:       readBoundedFile,
 		countProcesses: countProcessDirectories,
 		statFS: func(path string) (fileSystemStats, error) {
@@ -425,8 +435,12 @@ func countSocketRows(data []byte) (uint64, error) {
 
 // CollectHostFacts reads bounded, low-frequency host facts without executing
 // commands or accessing a container runtime socket.
-func CollectHostFacts() HostFacts {
-	return collectHostFacts(defaultLinuxSource())
+func CollectHostFacts() HostFacts { return CollectHostFactsWithPaths(SourcePaths{}) }
+
+// CollectHostFactsWithPaths reads identity from the same local sources as reports.
+// Hostname continues to come from the current UTS namespace.
+func CollectHostFactsWithPaths(paths SourcePaths) HostFacts {
+	return collectHostFacts(linuxSourceWithPaths(paths))
 }
 
 func collectHostFacts(source linuxSource) HostFacts {
@@ -435,7 +449,7 @@ func collectHostFacts(source linuxSource) HostFacts {
 	if data, err := source.readFile(filepath.Join(source.procRoot, "sys", "kernel", "osrelease"), 4096); err == nil {
 		facts.Kernel = strings.TrimSpace(string(data))
 	}
-	if data, err := source.readFile("/etc/os-release", 64<<10); err == nil {
+	if data, err := source.readFile(source.osReleasePath, 64<<10); err == nil {
 		facts.OS = parseOSRelease(data)
 	}
 	if facts.OS == "" {

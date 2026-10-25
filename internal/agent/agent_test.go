@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"math"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -91,6 +92,19 @@ func TestEnrollUsesAuthorizationHeaderAndConfigPermissions(t *testing.T) {
 	}
 }
 
+func TestEnrollAcceptsDocumentedControlResponse(t *testing.T) {
+	client := &http.Client{Transport: roundTripperFunc(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusCreated, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"node_id":"node-1","node_name":"Local test node","credential":"node-secret","websocket_path":"/agent/v1/ws"}`))}, nil
+	})}
+	config, err := Enroll(t.Context(), client, "http://127.0.0.1:8080", "enrollment-secret")
+	if err != nil {
+		t.Fatalf("enroll with documented Control response: %v", err)
+	}
+	if config.ControlURL != "http://127.0.0.1:8080" || config.NodeID != "node-1" || config.Credential != "node-secret" {
+		t.Fatal("documented Control response did not produce the expected Agent config")
+	}
+}
+
 type roundTripperFunc func(*http.Request) (*http.Response, error)
 
 func (function roundTripperFunc) RoundTrip(request *http.Request) (*http.Response, error) {
@@ -106,14 +120,27 @@ func TestEnrollBoundsAndStrictlyDecodesResponseWithoutRedirecting(t *testing.T) 
 			t.Fatalf("oversized response error=%v", err)
 		}
 	})
-	t.Run("unknown field", func(t *testing.T) {
-		client := &http.Client{Transport: roundTripperFunc(func(*http.Request) (*http.Response, error) {
-			return &http.Response{StatusCode: http.StatusCreated, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"node_id":"node","credential":"secret","extra":true}`))}, nil
-		})}
-		if _, err := Enroll(t.Context(), client, "http://127.0.0.1", "secret"); err == nil {
-			t.Fatal("response with unknown field was accepted")
-		}
-	})
+	for _, test := range []struct {
+		name string
+		body string
+	}{
+		{"unknown field", `{"node_id":"node","credential":"secret","extra":true}`},
+		{"numeric node name", `{"node_id":"node","credential":"secret","node_name":123}`},
+		{"object node name", `{"node_id":"node","credential":"secret","node_name":{}}`},
+		{"boolean websocket path", `{"node_id":"node","credential":"secret","websocket_path":true}`},
+		{"array websocket path", `{"node_id":"node","credential":"secret","websocket_path":[]}`},
+		{"trailing JSON", `{"node_id":"node","node_name":"Local test node","credential":"secret","websocket_path":"/agent/v1/ws"} {}`},
+		{"trailing garbage", `{"node_id":"node","credential":"secret"} invalid`},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			client := &http.Client{Transport: roundTripperFunc(func(*http.Request) (*http.Response, error) {
+				return &http.Response{StatusCode: http.StatusCreated, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(test.body))}, nil
+			})}
+			if config, err := Enroll(t.Context(), client, "http://127.0.0.1", "secret"); err == nil || config != (Config{}) {
+				t.Fatalf("invalid response error=%v; empty config=%v", err, config == (Config{}))
+			}
+		})
+	}
 	t.Run("redirect", func(t *testing.T) {
 		calls := 0
 		client := &http.Client{Transport: roundTripperFunc(func(request *http.Request) (*http.Response, error) {
@@ -284,6 +311,108 @@ func TestClientHandshakeHonorsContextCancellation(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("Agent handshake did not stop after cancellation")
 	}
+}
+
+// Closing the transport on cancellation can make a deadline call fail before
+// ReadMessage observes the cancellation. Exercise those boundaries explicitly
+// instead of depending on which goroutine wins a handshake race.
+func TestClientCancellationDuringSessionDeadlines(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		readCall  int
+		writeCall int
+		cancel    bool
+	}{
+		{name: "initial read deadline", readCall: 1, cancel: true},
+		{name: "hello write deadline", writeCall: 1, cancel: true},
+		{name: "heartbeat deadline", readCall: 2, cancel: true},
+		{name: "heartbeat refresh deadline", readCall: 3, cancel: true},
+		{name: "pong write deadline", writeCall: 2, cancel: true},
+		{name: "transport error without cancellation", readCall: 1},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(response http.ResponseWriter, request *http.Request) {
+				connection, err := (&websocket.Upgrader{}).Upgrade(response, request, nil)
+				if err != nil {
+					return
+				}
+				defer connection.Close()
+				hello, _ := protocol.NewEnvelope(protocol.TypeHello, "session", 1, protocol.ServerHello{
+					NodeID: "node-1", ServerNonce: "nonce", HeartbeatIntervalSeconds: 1,
+					HeartbeatTimeoutSeconds: 5, ReportIntervalMillis: protocol.DefaultReportInterval.Milliseconds(),
+				})
+				if err := connection.WriteJSON(hello); err != nil {
+					return
+				}
+				if _, _, err := connection.ReadMessage(); err != nil {
+					return
+				}
+				ping, _ := protocol.NewEnvelope(protocol.TypePing, "session", 2, protocol.Ping{})
+				if err := connection.WriteJSON(ping); err != nil {
+					return
+				}
+				_, _, _ = connection.ReadMessage()
+			}))
+			defer server.Close()
+			ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+			defer cancel()
+			var transport *deadlineClosingConn
+			dialer := &websocket.Dialer{NetDialContext: func(ctx context.Context, network, address string) (net.Conn, error) {
+				connection, err := (&net.Dialer{}).DialContext(ctx, network, address)
+				if err != nil {
+					return nil, err
+				}
+				transport = &deadlineClosingConn{Conn: connection, readCall: test.readCall, writeCall: test.writeCall}
+				if test.cancel {
+					transport.cancel = cancel
+				}
+				return transport, nil
+			}}
+			err := (&Client{Config: Config{ControlURL: server.URL, NodeID: "node-1", Credential: "secret"}, Dialer: dialer}).ConnectOnce(ctx)
+			if transport == nil || !transport.triggered {
+				t.Fatal("session did not reach the selected deadline boundary")
+			}
+			if test.cancel {
+				if !errors.Is(err, context.Canceled) {
+					t.Fatalf("canceled session returned transport error: %v", err)
+				}
+			} else if !errors.Is(err, net.ErrClosed) || ctx.Err() != nil {
+				t.Fatalf("uncanceled session lost its transport error: %v (context=%v)", err, ctx.Err())
+			}
+		})
+	}
+}
+
+type deadlineClosingConn struct {
+	net.Conn
+	cancel              context.CancelFunc
+	readCall, writeCall int
+	reads, writes       int
+	triggered           bool
+}
+
+func (connection *deadlineClosingConn) closeAtBoundary() {
+	connection.triggered = true
+	if connection.cancel != nil {
+		connection.cancel()
+	}
+	_ = connection.Conn.Close()
+}
+
+func (connection *deadlineClosingConn) SetReadDeadline(deadline time.Time) error {
+	connection.reads++
+	if connection.reads == connection.readCall {
+		connection.closeAtBoundary()
+	}
+	return connection.Conn.SetReadDeadline(deadline)
+}
+
+func (connection *deadlineClosingConn) SetWriteDeadline(deadline time.Time) error {
+	connection.writes++
+	if connection.writes == connection.writeCall {
+		connection.closeAtBoundary()
+	}
+	return connection.Conn.SetWriteDeadline(deadline)
 }
 
 type collectorFunc func(time.Time) (protocol.Report, error)

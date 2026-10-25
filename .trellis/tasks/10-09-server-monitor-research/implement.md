@@ -290,3 +290,55 @@ Implementation ownership: remaining_pages_implement owns frontend code/styles/tr
 - [x] Frontend site settings simplification, per-node homepage toggle, neutral homepage wording, real login-required/return-home flow, strict decoder and UI tests.
 - [x] Independent full-increment review; frontend gates and Go full/race/vet/tagged build; isolated schema10->11/browser default/open/hidden/login/access/selection-concurrency/error/mobile checks.
 - [x] Update specs/evidence; verified pre-update backup, targeted Docker deployment, health/assets/data comparison and deployed browser smoke. Preserve parent outstanding work and uncommitted source.
+
+### 2026-10-25: Probe assignment review fix
+
+- [x] Add atomic PATCH assignment deltas and retain legacy replacement behavior with mutually exclusive validation.
+- [x] Serialize edit selection overrides as deltas; create keeps full node_ids.
+- [x] Add meaningful regressions for stale editor save after enrollment, explicit changes plus unseen automatic assignments, malformed/mixed deltas and quota rollback.
+- [x] Run frontend lint/typecheck/tests/build and Go tests/race/vet/tagged tests/build; independently review final diff.
+- [x] Record owning specs and validation evidence; leave parent active and source reviewable.
+
+Verification: [Probe editor assignment concurrency repair](./verification-probe-assignment-fix.md).
+
+### 2026-10-25: Form focus outline repair
+
+- [x] Contain shared text-input/select/textarea focus outlines without removing focus visibility or changing checkbox/radio/button/link indicators.
+- [x] Frontend gates and embedded Go tests/build; independent Trellis review; isolated installation-screen mouse/keyboard, themes/languages and 320px checks.
+- [x] Record owning accessibility convention and evidence; verified pre-update backup, targeted Docker update and read-only deployed checks with data preserved.
+
+Verification: [Form focus outline repair](./verification-focus-outline-fix.md). Parent remains active for outstanding acceptance work; source is uncommitted.
+
+### 2026-10-25: Installation-settings action feedback
+
+- [x] Add clear resting border and strong hover/focus treatment to the existing settings action; preserve prior fixes and navigation.
+- [x] Frontend quality gates, tagged Go tests/build and independent Trellis check; real-dialog resting/hover/Tab/click, theme/language and 320px validation.
+- [x] Record evidence; verified pre-update backup and targeted local Docker update with assets/health/data checks.
+
+Verification: [Installation-settings action feedback](./verification-settings-action-feedback.md). Parent remains active; no source commit/push.
+
+### 2026-10-25: Local installation without saved address
+
+- [x] Add an explicit local-test choice for blank settings on a valid loopback page; generate an explicit canonical local control_url without weakening remote settings/HTTPS or release checks.
+- [x] Repair the reproduced Agent decoder mismatch with the documented four-field Control response and add a real Control-Agent enrollment regression.
+- [x] Meaningful URL/resolution regressions, frontend gates and tagged Go tests/build; independent review and isolated real HTTP dialog/API/token/browser checks including 320px/keyboard/saved URL priority.
+- [x] Synchronize user docs and owning specs; verified backup, targeted Docker update and health/assets/data verification. No real Agent installation or configuration changes.
+
+Verification: [Local installation without saved address](./verification-local-installation.md). Local Agent artifact available under data/bin; no release publication, commit/push or archive of the larger parent task.
+
+### 2026-10-25: Docker Agent / GHCR
+
+- [x] Host-source CLI flags and collection/facts wiring with regression tests and unchanged native defaults.
+- [x] Nonroot multiarch Agent Dockerfile, persistent config and one-shot enrollment Compose workflow; GHCR workflow and CI/security checks.
+- [x] Docker result method and correctly quoted commands in existing enrollment flow, clipboard and bilingual/responsive/secret-state regressions.
+- [x] Frontend/Go/race/vet/tagged quality gates and independent review; actual container enrollment/online/host-metric/volume/restart/token validation and UI-generated command verification.
+- [x] Synchronize docs/specs; build/publish/pull GHCR image, record version/digest/access status, preserve unrelated source and actual Control data; update local Control and verify health/assets/data.
+
+Verification: [Docker Agent and GHCR](./verification-docker-agent.md). Larger parent remains active. Probe-assignment source is now committed as `362ec9e`; the earlier verification sections describe their original incremental checkpoints.
+
+### 2026-10-25: Commit remaining reviewed changes
+
+- [x] User explicitly requested committing and pushing all remaining reviewed changes.
+- [x] Commit probe assignment code, API contract, specs and regression tests as `362ec9e`.
+- [x] Collect installation/focus/Docker verification and current task plans into a documentation commit.
+- [x] Record session separately; preserve the larger parent's unfinished acceptance work.

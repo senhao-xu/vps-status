@@ -42,6 +42,7 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 	flags.SetOutput(stderr)
 	configPath := flags.String("config", defaultConfigPath, "Agent configuration path")
 	showVersion := flags.Bool("version", false, "print build information and exit")
+	sourcePaths := sourcePathFlags(flags)
 	if err := flags.Parse(arguments); err != nil {
 		return 2
 	}
@@ -52,6 +53,10 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 	if *showVersion {
 		fmt.Fprintln(stdout, versioninfo.String("agent"))
 		return 0
+	}
+	if err := sourcePaths.Validate(); err != nil {
+		fmt.Fprintln(stderr, err)
+		return 2
 	}
 	if !agentapp.SupportedPlatform() {
 		fmt.Fprintln(stderr, "agent startup failed: host collection is supported only on Linux")
@@ -64,13 +69,22 @@ func run(arguments []string, stdout, stderr io.Writer) int {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
-	client := &agentapp.Client{Config: config, AgentVersion: versioninfo.Version}
+	client := &agentapp.Client{Config: config, AgentVersion: versioninfo.Version, SourcePaths: *sourcePaths}
 	err = client.Run(ctx, agentapp.RetryPolicy{})
 	if err != nil && !errors.Is(err, context.Canceled) {
 		fmt.Fprintf(stderr, "agent stopped: %s\n", security.Redact(err.Error()))
 		return 1
 	}
 	return 0
+}
+
+func sourcePathFlags(flags *flag.FlagSet) *agentapp.SourcePaths {
+	paths := agentapp.DefaultSourcePaths()
+	flags.StringVar(&paths.ProcRoot, "proc-root", paths.ProcRoot, "procfs root for host collection")
+	flags.StringVar(&paths.SysRoot, "sys-root", paths.SysRoot, "sysfs root for host collection")
+	flags.StringVar(&paths.RootFS, "rootfs", paths.RootFS, "root filesystem path for host disk usage")
+	flags.StringVar(&paths.OSRelease, "os-release", paths.OSRelease, "host os-release file path")
+	return &paths
 }
 
 func runCredential(arguments []string, stdout, stderr io.Writer) error {

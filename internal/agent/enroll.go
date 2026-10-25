@@ -54,8 +54,10 @@ func Enroll(ctx context.Context, client *http.Client, controlURL, token string) 
 		return Config{}, fmt.Errorf("enrollment rejected with status %d", response.StatusCode)
 	}
 	var result struct {
-		NodeID     string `json:"node_id"`
-		Credential string `json:"credential"`
+		NodeID        string `json:"node_id"`
+		NodeName      string `json:"node_name"`
+		Credential    string `json:"credential"`
+		WebsocketPath string `json:"websocket_path"`
 	}
 	decoder := json.NewDecoder(bytes.NewReader(body))
 	decoder.DisallowUnknownFields()

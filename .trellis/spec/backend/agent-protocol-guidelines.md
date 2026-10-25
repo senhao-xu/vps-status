@@ -69,6 +69,9 @@ cross the storage boundary.
 - The Agent refuses redirects, limits the response to 64 KiB, and rejects
   unknown fields or trailing JSON. Its config is a regular user-only file,
   limited to 16 KiB and strictly decoded from one already-checked descriptor.
+  Its enrollment decoder must accept the server's documented `node_name` and
+  `websocket_path` fields in addition to `node_id`/`credential`; verify against
+  the real Control handler, since minimal client-only fixtures can hide drift.
 - HTTPS/WSS is required except for `localhost` or a literal loopback address.
   Userinfo, query strings, and fragments are rejected.
 
@@ -121,6 +124,14 @@ cross the storage boundary.
 | Missing/late hello or heartbeat | bounded protocol error and close |
 | Full queue or blocked socket write | close the slow connection; never grow memory or block indefinitely |
 | Context cancellation during connect/handshake | return `context.Canceled`/`context.DeadlineExceeded` through `errors.Is` |
+
+Cancellation can close the socket before a deadline setter or frame writer
+returns. Normalize failed session I/O through `sessionIOError(ctx, err)` so
+`errors.Is(err, context.Canceled/DeadlineExceeded)` holds at dial, read/deadline,
+hello, heartbeat and probe-ack boundaries. Without cancellation preserve the
+original transport error. Use deterministic wrapped real TCP connections that
+cancel exactly at deadline/write calls; ordinary timing-only loops can pass
+locally while racing on GitHub runners.
 
 Peer errors contain stable bounded codes/messages only. Raw SQL, filesystem
 paths, Authorization values, tokens, credentials, and payloads are never

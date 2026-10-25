@@ -1,0 +1,54 @@
+# Linux hosts, Docker Engine 25+ and Compose 5.5+.
+# Enroll once with `docker compose run --rm enroll enroll --control-url ...
+# --token ... --config /data/agent.json`, then `docker compose up -d agent`.
+services:
+  enroll:
+    profiles: [enroll]
+    image: ${VPS_STATUS_AGENT_IMAGE:-ghcr.io/senhao-xu/vps-status-agent:latest}
+    network_mode: host
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - agent-data:/data
+    command: [enroll, --config, /data/agent.json]
+
+  agent:
+    image: ${VPS_STATUS_AGENT_IMAGE:-ghcr.io/senhao-xu/vps-status-agent:latest}
+    restart: unless-stopped
+    network_mode: host
+    pid: host
+    uts: host
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    volumes:
+      - agent-data:/data
+      - type: bind
+        source: /proc
+        target: /host/proc
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /sys
+        target: /host/sys
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /
+        target: /host/root
+        read_only: true
+        bind:
+          create_host_path: false
+          recursive: disabled
+      - type: bind
+        source: /etc/os-release
+        target: /host/os-release
+        read_only: true
+        bind:
+          create_host_path: false
+
+volumes:
+  agent-data:

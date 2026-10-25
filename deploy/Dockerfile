@@ -8,7 +8,7 @@ COPY web ./web
 COPY internal/control/webui ./internal/control/webui
 RUN corepack pnpm@10.18.0 --dir web build
 
-FROM golang:1.24.9-bookworm AS build
+FROM golang:1.27.3-bookworm AS build
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
 ARG VERSION=dev

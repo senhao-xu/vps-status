@@ -1,0 +1,113 @@
+name: Agent image
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: agent-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Test Agent before publication
+        run: |
+          go test ./cmd/agent ./internal/agent ./internal/protocol ./tests/enrollment
+          go vet ./cmd/agent ./internal/agent
+      - uses: docker/setup-buildx-action@v3
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image metadata
+        id: metadata
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/vps-status-agent
+          tags: |
+            type=sha,format=long
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || (startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')) }}
+      - name: Build version
+        id: version
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            echo "value=$GITHUB_REF_NAME" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=sha-$GITHUB_SHA" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build and publish Linux Agent
+        id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/Dockerfile.agent
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.metadata.outputs.tags }}
+          labels: |
+            ${{ steps.metadata.outputs.labels }}
+            org.opencontainers.image.version=${{ steps.version.outputs.value }}
+          build-args: |
+            VERSION=${{ steps.version.outputs.value }}
+            COMMIT=${{ github.sha }}
+          cache-from: type=gha,scope=agent-image
+          cache-to: type=gha,mode=max,scope=agent-image
+      - name: Verify published architectures
+        env:
+          AGENT_IMAGE: ghcr.io/${{ github.repository_owner }}/vps-status-agent
+          AGENT_DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          manifest_file="$(mktemp)"
+          docker buildx imagetools inspect "$AGENT_IMAGE@$AGENT_DIGEST" --raw > "$manifest_file"
+          python3 - "$manifest_file" <<'PY'
+          import json
+          import os
+          import sys
+
+          with open(sys.argv[1], encoding="utf-8") as source:
+              manifest = json.load(source)
+          platforms = {
+              f"{platform.get('os')}/{platform.get('architecture')}"
+              for entry in manifest.get("manifests", [])
+              if (platform := entry.get("platform", {})).get("os") == "linux"
+          }
+          required = {"linux/amd64", "linux/arm64"}
+          if missing := required - platforms:
+              raise SystemExit("Published image lacks required platforms: " + ", ".join(sorted(missing)))
+          message = (
+              f"Published Agent: {os.environ['AGENT_IMAGE']}@{os.environ['AGENT_DIGEST']}\n"
+              f"Platforms: {', '.join(sorted(platforms))}\n"
+          )
+          print(message)
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+              summary.write(message + "\n")
+          PY
+      - name: Report GitHub package visibility
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          visibility="$(gh api "/users/$GITHUB_REPOSITORY_OWNER/packages/container/vps-status-agent" --jq .visibility)"
+          case "$visibility" in
+            public|private|internal) ;;
+            *) echo "Unrecognized GitHub package visibility" >&2; exit 1 ;;
+          esac
+          printf 'Agent package visibility: %s\n' "$visibility" | tee -a "$GITHUB_STEP_SUMMARY"

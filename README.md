@@ -7,11 +7,12 @@ Control keeps low-growth identities and configuration in `control.db` while comp
 ## Docker 快速安装 / Quick install
 
 当前 Docker 支持使用仓库内的多阶段 `Dockerfile` 从源码构建 Control 镜像，镜像内已
-包含 Web 管理界面，运行时使用非 root 用户和只读根文件系统。仓库目前未配置 GHCR
-或其他镜像仓库的预构建镜像发布，因此安装时需要在本机构建。
+包含 Web 管理界面，运行时使用非 root 用户和只读根文件系统。Control 仍从源码构建。
 
-Docker Compose 部署的是 Control；Agent 暂无配套 Docker 部署，使用 Linux
-amd64/arm64 二进制和 systemd 安装到被监控主机，详见下方的 Agent 接入说明。
+Agent 支持 Linux amd64/arm64 的 **systemd、Docker 和手动运行二进制**。
+Docker 镜像由 GitHub Actions 构建并发布到 GitHub Container Registry：
+`ghcr.io/senhao-xu/vps-status-agent:latest`。容器采集宿主机指标，安装方法见
+[Agent Docker 安装说明](deploy/README.md#agent-with-docker)。
 
 准备一台安装了 Git、Docker Engine 和 Docker Compose v2 或更新版本的 Linux 主机。
 宿主机无需安装 Go、Node.js 或 pnpm；首次构建需要联网拉取基础镜像及 Go/pnpm 依赖。
@@ -76,7 +77,9 @@ Caddy 会自动申请和续期 HTTPS 证书。打开 `https://monitor.example.co
 
 登录后，在 **安装设置 / Installation settings** 中统一配置目标服务器能访问的面板 HTTPS
 地址。留空时使用当前页面的 HTTPS 地址；通过 localhost 或 SSH 隧道访问后台时必须配置
-远程节点可达的地址。添加节点时只需填写名称，复制生成的一键安装命令到目标服务器执行；
+远程节点可达的地址。仅在本机测试时，可以保持地址为空，在添加节点弹窗中勾选“仅在本机测试”，
+使用当前本地地址生成安装命令；这条命令只能用于与当前浏览器在同一电脑上的 Agent，不能用于远程 VPS。
+添加节点时填写名称，生成命令后选择 **systemd** 或 **Docker**，复制命令到目标服务器执行；
 对话框会显示等待安装、已注册和在线状态。
 安装命令只在创建时展示，过期后可重新生成，未使用的令牌可以撤销。安装程序支持 Linux amd64/arm64，
 命令直接从指定的 GitHub Release 下载独立 `bootstrap-agent.sh`，再下载 Agent、安装脚本和 systemd unit，逐项校验
@@ -116,12 +119,12 @@ docker compose -f deploy/docker-compose.yml down
 **警告：** `docker compose -f deploy/docker-compose.yml down -v` 会删除 `control-data`
 命名卷及 Control 数据，仅应在确认已备份且需要销毁数据时执行。
 
-TLS 反向代理、备份/恢复以及 Agent 的 systemd 安装说明见
+TLS 反向代理、备份/恢复以及 Agent 的 systemd/Docker 安装说明见
 [deploy/README.md](deploy/README.md)。
 
 ## Source development requirements
 
-- Go 1.24 or newer
+- Go 1.25 or newer (the repository selects the patched Go 1.27.3 toolchain)
 - Node.js 22 or newer
 - pnpm 10
 

@@ -101,6 +101,8 @@ type updateProbeRequest struct {
 	IntervalSeconds *uint32   `json:"interval_seconds"`
 	AutoJoin        *bool     `json:"auto_join"`
 	NodeIDs         *[]string `json:"node_ids"`
+	NodeIDsAdd      *[]string `json:"node_ids_add"`
+	NodeIDsRemove   *[]string `json:"node_ids_remove"`
 }
 
 func (api *adminAPI) updateProbe(response http.ResponseWriter, request *http.Request, _ authenticatedRequest) {
@@ -140,7 +142,12 @@ func (api *adminAPI) updateProbe(response http.ResponseWriter, request *http.Req
 		writeError(response, http.StatusBadRequest, "invalid_input", "The TCP probe configuration is invalid.")
 		return
 	}
-	patch := controlstore.ProbeTaskPatch{Name: input.Name, Host: input.Host, Port: input.Port, IntervalSeconds: input.IntervalSeconds, AutoJoin: input.AutoJoin, NodeIDs: input.NodeIDs}
+	patch := controlstore.ProbeTaskPatch{Name: input.Name, Host: input.Host, Port: input.Port, IntervalSeconds: input.IntervalSeconds,
+		AutoJoin: input.AutoJoin, NodeIDs: input.NodeIDs, NodeIDsAdd: input.NodeIDsAdd, NodeIDsRemove: input.NodeIDsRemove}
+	if err := patch.ValidateAssignments(); err != nil {
+		api.writeProbeStoreError(response, err)
+		return
+	}
 	if patch.Name != nil {
 		value := strings.TrimSpace(*patch.Name)
 		patch.Name = &value
@@ -259,6 +266,8 @@ func (api *adminAPI) syncProbeNodes(nodeIDs []string) {
 
 func (api *adminAPI) writeProbeStoreError(response http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, controlstore.ErrInvalidProbeConfiguration):
+		writeError(response, http.StatusBadRequest, "invalid_input", "The TCP probe configuration is invalid.")
 	case errors.Is(err, controlstore.ErrNotFound):
 		writeError(response, http.StatusNotFound, "not_found", "The TCP probe task or node was not found.")
 	case errors.Is(err, controlstore.ErrProbeAssignmentExists):

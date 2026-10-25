@@ -267,3 +267,56 @@ Implemented latency detail dialogs, monitor-style TCP target/selection/auto-join
 ### Next Steps
 
 - Complete outstanding parent security/capacity acceptance; keep parent task active.
+
+
+## Session 10: Docker Agent and public GHCR image
+
+**Date**: 2026-10-25
+**Task**: Docker Agent and public GHCR image
+**Branch**: `codex/agent-docker-ghcr`
+
+### Summary
+
+Implemented Docker Agent host monitoring and selectable installation; published public multiarch GHCR latest sha256:8784ceb33080620a106cba67d409ceeec08ad0282a7a156bff3ec7ce13511d02 via Actions40170241222. Verified anonymous amd64/arm64 pulls, exact UI command and Docker/Compose registration/host metrics/restart. Patched Go/crypto/scanner and cancellation race; all gates and independent reviews pass. Local18080 updated healthy; all21 config tables/schema/master key preserved. DraftPR1 attached. Parent remains active; unrelated probe assignment changes left dirty.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `d2fa9ee` | (see git log) |
+| `3b7b3c0` | (see git log) |
+| `a82dbab` | (see git log) |
+
+### Status
+
+[OK] **Completed**
+
+
+## Session 11: Commit remaining probe repair and verification records
+
+**Date**: 2026-10-25
+**Task**: Commit remaining probe repair and verification records
+**Branch**: `codex/agent-docker-ghcr`
+
+### Summary
+
+User explicitly requested committing and pushing all remaining changes. Committed the previously reviewed atomic probe-assignment delta repair and regression tests, synchronized installation/focus/Docker evidence and task plans, and collected prior session records on codex/agent-docker-ghcr. Production source is unchanged from the tested local tree; no deployment or data mutation. The larger parent remains active for unfinished acceptance work.
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `362ec9e` | (see git log) |
+| `d39bb79` | (see git log) |
+
+### Testing
+
+- [OK] Prior full Go/race/vet/tagged and frontend273 checks plus independent reviews cover the unchanged code; staged diff checks pass.
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- Keep the parent active for its outstanding capacity/security acceptance work.

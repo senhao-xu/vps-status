@@ -30,8 +30,9 @@ bootstrap/release packaging contract lives in [Operations](./operations-guidelin
   development placeholders, not published-version overrides. The effective
   startup placeholder makes `release_configured` false.
 - Address priority for enrollment: saved address, explicit `control_url`, then
-  validated non-loopback HTTPS request Origin. Explicit old-client loopback
-  input remains supported for local development. Do not reconstruct public
+  validated non-loopback HTTPS request Origin. Explicit loopback input remains
+  supported for local development; the UI exposes it only through an explicit
+  local-test choice when saved defaults are blank. Do not reconstruct public
   addresses from an internal proxy Host or forwarded scheme.
 - Resolve settings and reject a missing release before creating any token.
 - `release_configured` does not check remote asset availability. A Release
@@ -71,13 +72,17 @@ bootstrap/release packaging contract lives in [Operations](./operations-guidelin
   settings/Origin, placeholder eligibility and unchanged token count on guard failure.
 - Frontend strict decoder, address resolution, name-only form/settings link,
   canceled/stale config requests and preservation of enrollment terminal/race behavior.
-- Browser: localhost guidance, save settings, direct GitHub command, blank
-  address automatic HTTPS origin, keyboard and 320px theme layouts.
+- Browser: localhost guidance and explicit local-test opt-in, generated local
+  command and real Agent registration/online state on isolated data, saved
+  address precedence, direct GitHub command, blank address automatic HTTPS
+  origin, release guards, keyboard and 320px theme layouts.
 
 ## 7. Wrong vs Correct
 
-Wrong: show an install command using `window.location.origin` even when that
-origin is localhost, or interpret a nonempty version as proof of a published Release.
+Wrong: automatically show a remote installation command using a localhost
+origin without local-test opt-in, or interpret a nonempty version as proof of
+a published Release.
 
 Correct: prefer saved remote defaults, reject automatic local/non-HTTPS
-entries in the UI, and show eligible version/source separately from publication.
+entries in the UI, accept local loopback only after explicit local-test selection,
+and show eligible version/source separately from publication.

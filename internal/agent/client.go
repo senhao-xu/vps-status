@@ -22,6 +22,7 @@ type Client struct {
 	Dialer       *websocket.Dialer
 	WriteTimeout time.Duration
 	Collector    Collector
+	SourcePaths  SourcePaths
 	Now          func() time.Time
 	ProbeConfig  ProbeSchedulerConfig
 }
@@ -48,7 +49,7 @@ func (c *Client) ConnectOnce(ctx context.Context) error {
 		_ = response.Body.Close()
 	}
 	if err != nil {
-		return fmt.Errorf("connect to Control: %w", err)
+		return sessionIOError(ctx, fmt.Errorf("connect to Control: %w", err))
 	}
 	defer connection.Close()
 	connection.SetReadLimit(protocol.MaxFrameBytes)
@@ -62,7 +63,7 @@ func (c *Client) ConnectOnce(ctx context.Context) error {
 		}
 	}()
 	if err := connection.SetReadDeadline(time.Now().Add(20 * time.Second)); err != nil {
-		return err
+		return sessionIOError(ctx, err)
 	}
 	messageType, data, err := connection.ReadMessage()
 	if err != nil {
@@ -85,7 +86,7 @@ func (c *Client) ConnectOnce(ctx context.Context) error {
 	if protocol.DecodePayload(envelope.Payload, &hello) != nil || hello.ServerNonce == "" || hello.NodeID != c.Config.NodeID {
 		return errors.New("Control hello is invalid")
 	}
-	facts := CollectHostFacts()
+	facts := CollectHostFactsWithPaths(c.SourcePaths)
 	if facts.Hostname == "" {
 		facts.Hostname, _ = os.Hostname()
 	}
@@ -109,16 +110,16 @@ func (c *Client) ConnectOnce(ctx context.Context) error {
 		ServerNonce: hello.ServerNonce, AgentVersion: agentVersion, Hostname: facts.Hostname, OS: facts.OS,
 		Kernel: facts.Kernel, Architecture: facts.Architecture, Virtualization: facts.Virtualization, BootID: facts.BootID,
 	}); err != nil {
-		return err
+		return sessionIOError(ctx, err)
 	}
 	heartbeatTimeout := time.Duration(hello.HeartbeatTimeoutSeconds) * time.Second
 	if err := connection.SetReadDeadline(time.Now().Add(heartbeatTimeout)); err != nil {
-		return fmt.Errorf("set Control heartbeat deadline: %w", err)
+		return sessionIOError(ctx, fmt.Errorf("set Control heartbeat deadline: %w", err))
 	}
 	serverSequence := envelope.Seq
 	collector := c.Collector
 	if collector == nil {
-		collector = NewCollector()
+		collector = NewCollectorWithPaths(c.SourcePaths)
 	}
 	reportErrors := make(chan error, 1)
 	reportContext, stopReports := context.WithCancel(ctx)
@@ -161,7 +162,7 @@ func (c *Client) ConnectOnce(ctx context.Context) error {
 		}
 		serverSequence = envelope.Seq
 		if err := connection.SetReadDeadline(time.Now().Add(heartbeatTimeout)); err != nil {
-			return fmt.Errorf("refresh Control heartbeat deadline: %w", err)
+			return sessionIOError(ctx, fmt.Errorf("refresh Control heartbeat deadline: %w", err))
 		}
 		switch envelope.Type {
 		case protocol.TypeProbeSync:
@@ -171,7 +172,7 @@ func (c *Client) ConnectOnce(ctx context.Context) error {
 			}
 			status := probes.Apply(sync)
 			if err := writer.send(protocol.TypeProbeSync, status); err != nil {
-				return err
+				return sessionIOError(ctx, err)
 			}
 		case protocol.TypePing:
 			var ping protocol.Ping
@@ -179,7 +180,7 @@ func (c *Client) ConnectOnce(ctx context.Context) error {
 				return errors.New("Control ping is invalid")
 			}
 			if err := writer.send(protocol.TypePong, ping); err != nil {
-				return err
+				return sessionIOError(ctx, err)
 			}
 		case protocol.TypePong:
 			var pong protocol.Ping
@@ -197,6 +198,15 @@ func (c *Client) ConnectOnce(ctx context.Context) error {
 			return errors.New("Control sent a message unavailable in this Agent milestone")
 		}
 	}
+}
+
+// Cancellation closes the connection, so deadline and write operations can
+// observe a closed socket before the read loop observes the context error.
+func sessionIOError(ctx context.Context, err error) error {
+	if contextErr := ctx.Err(); contextErr != nil {
+		return contextErr
+	}
+	return err
 }
 
 type sessionWriter struct {

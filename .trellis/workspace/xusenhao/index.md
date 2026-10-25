@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 9
-- **Last Active**: 2026-10-15
+- **Total Sessions**: 11
+- **Last Active**: 2026-10-25
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~269 | Active |
+| `journal-1.md` | ~322 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,8 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 11 | 2026-10-25 | Commit remaining probe repair and verification records | `362ec9e`, `d39bb79` | `codex/agent-docker-ghcr` |
+| 10 | 2026-10-25 | Docker Agent and public GHCR image | `d2fa9ee`, `3b7b3c0`, `a82dbab` | `codex/agent-docker-ghcr` |
 | 9 | 2026-10-15 | Latency checks, homepage settings and local deployment | `07a3233` | `main` |
 | 8 | 2026-10-14 | Remaining administrator pages and local update | `3480a64` | `main` |
 | 7 | 2026-10-14 | Deploy updated TCP page locally | `c9130fb` | `main` |

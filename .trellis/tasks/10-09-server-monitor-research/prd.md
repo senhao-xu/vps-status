@@ -100,6 +100,24 @@
 - [ ] 发布 Linux amd64/arm64 Agent 和内嵌 Web 的 Control；Control 可以单二进制或 Docker Compose 运行，生产环境无需 Node.js。
 - [ ] 在 2 vCPU / 2 GiB 环境中持续压测 100 个在线 Agent、400 个 TCP 任务和默认保留策略时，连接、实时状态、分钟聚合、历史清理与告警链路保持可用。
 
+### 2026-10-25: Form focus outline overlap
+
+User screenshot shows the Agent release-version input's focus outline covering the effective-version text below it. Keep a visible keyboard focus indicator while containing text-field/select/textarea outlines within their own bounds. Preserve button/link and checkbox/radio focus indicators, existing form layout, themes and 320px support. Validate the real installation screen and update local Docker with its existing volume, port and Agent version.
+
+### 2026-10-25: Installation-settings action feedback
+
+User reports that the pale hover background on “前往安装设置” is too subtle. Give this existing settings action a clear bordered resting appearance and a prominent theme-colored fill with contrasting text on hover and keyboard focus. Keep its navigation behavior, visible focus indicator, localization, themes and 320px layout. Update the local Docker service after browser verification, preserving data and preceding fixes.
+
+### 2026-10-25: Empty installation address during local testing
+
+User points out that the empty-address warning prevents adding nodes in the current localhost deployment. Provide an explicit “仅在本机测试” choice in the add-node dialog when saved address is blank and the browser origin is a valid local address. Selecting it uses the current local address for the existing one-time installation command, without requiring a shared remote address. Explain that it works only for an Agent on this computer. Preserve saved remote defaults, remote HTTPS validation, release eligibility and enrollment status/token behavior. Do not enable remote plaintext HTTP, auto-select a loopback address for remote installation, install an Agent on the real host, or change actual settings during tests. Verify a real isolated local enrollment end to end and update the existing Docker deployment.
+
+### 2026-10-25: Docker Agent and GitHub-hosted images
+
+User requests Agent Docker installation with images hosted on GitHub. Add a Linux amd64/arm64 Agent image at ghcr.io/senhao-xu/vps-status-agent, an authenticated reproducible GHCR publication workflow, and runnable Docker/Compose instructions. The add-node dialog must expose a Docker installation command alongside the existing systemd and manual flows, reusing the same one-time enrollment and status lifecycle. Containerized Agent must report the Docker host's existing host metrics/facts, persist its private credential across restarts/upgrades, run nonroot without privileged mode or added capabilities, and preserve the outbound-only protocol and existing local-test/remote-HTTPS behavior. Validate a real isolated Docker Agent enrollment, host metrics and restart continuity; publish a usable image when authorized credentials/workflow permit. Preserve previous uncommitted fixes and actual site data.
+
+This adds a container packaging/deployment method, not Docker container metrics, runtime socket integration, Windows/macOS support, remote commands, Control registry publication, or Kubernetes. Keep current binary/systemd installation working and never put enrollment tokens in image layers or long-lived container environment/arguments. Image publication and any required source push are part of the requested GitHub hosting; do not overwrite existing versioned release assets or unrelated Git changes.
+
 ## Out of Scope
 
 - 远程命令、Web Terminal 和文件管理；这是长期安全边界，不是仅延后到下个版本。
@@ -156,3 +174,7 @@ User explicitly requests “其他页面也参考下，做一版更新优化”.
 追加要求：顶部首页按钮去掉“↗”符号；中文仅“首页”，英文仅“Homepage”，保留按钮外观和新窗口行为。
 
 追加要求：删除管理员登录表单内“打开首页”链接；保留首页入口按钮、登录与受限站点登录返回流程。验证后更新本地Docker。
+
+### 2026-10-25: 修复编辑检测时撤销自动加入分配
+
+用户在代码审查发现问题后要求“修复”。打开检测编辑弹窗后，新节点可能完成自动分配；只修改名称或其他配置并保存不得撤销这些未触碰的分配。显式勾选/取消仍应生效，筛选和刷新不得丢失用户选择。校验、每节点64任务限制、事务回滚、鉴权、CSRF和既有完整列表调用方保持兼容。

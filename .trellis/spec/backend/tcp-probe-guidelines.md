@@ -101,6 +101,10 @@ Use for the monitor-style future-node inclusion checkbox, probe DTO/config stora
 
 - Control schema10: `probe_tasks.auto_join INTEGER NOT NULL DEFAULT 0 CHECK(auto_join IN (0,1))`.
 - Storage `ProbeTask.AutoJoin bool`; JSON DTO/POST `auto_join bool`; PATCH optional `*bool`.
+- PATCH assignment fields: legacy `node_ids?: string[]` replacement, or
+  `node_ids_add?: string[]` / `node_ids_remove?: string[]` deltas. Storage
+  `ProbeTaskPatch` represents each list as `*[]string` and owns shared
+  `ValidateAssignments()` validation.
 - `ErrProbeAutoJoinLimit` maps to409 `probe_auto_join_limit`.
 - `PatchProbeTask(ctx,id,ProbeTaskPatch,now)` merges optional fields inside the storage transaction and returns saved task plus previous node IDs. `ChangeProbeAssignment(ctx,id,nodeID,add,now)` changes a single assignment under the same mutation owner.
 
@@ -108,7 +112,13 @@ Use for the monitor-style future-node inclusion checkbox, probe DTO/config stora
 
 - Migrated tasks and omitted POST values defaultfalse; omitted PATCH preserves the previous flag. Toggle changes future-node policy, not existing assignments. Explicit node_ids still owns current assignment replacement.
 - Create/update cap enabled auto-join definitions at protocol.MaxProbeTasks in their existing transaction, alongside per-node assignment limits. A rejected mutation changes neither task, assignments nor snapshot version.
-- Omitted PATCH assignments are read/preserved inside the transaction, never copied back from a handler's earlier snapshot. Explicit node_ids (including []) still replaces the complete set. Single-assignment endpoints mutate only their requested node against committed state; cleanup/sync uses the transaction's previous/current identities.
+- Omitted PATCH assignments are read/preserved inside the transaction, never copied back from a handler's earlier snapshot. Explicit node_ids (including []) still replaces the complete set. Editor deltas merge against committed assignments in that same transaction: add explicitly selected IDs and remove explicitly deselected IDs, preserving untouched enrollment/other-editor changes. Repeating an add/remove is idempotent; an addition requires an active node, while removal of an already absent node is harmless. Single-assignment endpoints retain their own conflict/not-found behavior. Cleanup/sync uses the transaction's previous/current identities.
+- Replacement and delta fields are mutually exclusive, including supplied empty
+  arrays. Each list is bounded at10000; IDs must satisfy the shared bounded ID
+  contract, have no duplicates, and may not occur in both delta lists. Validate
+  at the API boundary and independently in storage; validate resulting task
+  size, active nodes and per-node quotas before committing scalar/assignment/
+  version changes. No schema or Agent protocol addition is required.
 - ConsumeEnrollment inserts every enabled task assignment inside the node/credential/token transaction and bumps probe version once if assignments exist. Failure rolls back token consumption, identity, credential, assignments and version. The first Agent hello reads this committed bounded set; no Agent upgrade or auto_join wire field is needed.
 - Migration runner backs up schema9 before adding the column. Downgrade requires verified pre-migration control/key backup; older binaries reject schema10.
 
@@ -118,6 +128,9 @@ Use for the monitor-style future-node inclusion checkbox, probe DTO/config stora
 |---|---|
 | 65th enabled auto-join definition |409 probe_auto_join_limit; atomic rollback |
 | 65th assignment on an existing node | Existing409 probe_task_limit |
+| Mixed replacement/deltas, malformed/duplicate/overlapping IDs, overlong list/result |400 invalid_input; scalar settings, assignments and version unchanged |
+| Delta addition references missing/deleted node |404 not_found; unchanged transaction |
+| Omitted/empty delta lists or removing absent assignment | Preserve untouched committed assignments |
 | Unknown/consumed/expired enrollment | Existing enrollment error; no automatic assignments |
 | Assignment insert/version failure during enrollment | Entire enrollment transaction rolls back |
 | Toggle off | Existing assignments stay; later nodes excluded |
@@ -128,8 +141,14 @@ Good: a future registered node obtains enabled checks before its first hello. Ba
 
 ### 6. Tests Required
 
-Schema1–9 migration backups and legacy preservation;64/65 create/update/concurrent admission; old POST/default and PATCH omit/false; enrollment64/version-once/disable; rejected enrollment and injected assignment/version failure rollback; real API enrollment confirms new assignment; a gated-body PATCH/enrollment regression proves omitted node_ids preserves concurrent automatic assignments, while explicit [] clears; assignment endpoints preserve unrelated autojoined nodes.
+Schema1–9 migration backups and legacy preservation;64/65 create/update/concurrent admission; old POST/default and PATCH omit/false; enrollment64/version-once/disable; rejected enrollment and injected assignment/version failure rollback; real API enrollment confirms new assignment; a gated-body PATCH/enrollment regression proves omitted node_ids and explicit deltas preserve concurrent automatic assignments, while explicit [] clears; assignment endpoints preserve unrelated autojoined nodes. Cover stale browser snapshot plus a name-only save, explicit add/remove plus unseen enrollment, empty/mixed/duplicate/overlapping/malformed lists, repeated deltas, missing additions, absent removals, and quota rejection rolling back scalar settings, complete assignments and snapshot version.
 
 ### 7. Wrong vs Correct
 
 Wrong: consume enrollment, commit, then separately insert automatic assignments. Correct: insert assignments and bump version before the same enrollment transaction commits.
+
+Wrong: the server supports omitted node_ids, but every browser edit still sends
+its stale complete snapshot. A correct server transaction then deliberately
+replaces newly auto-joined assignments. Correct: omit assignment fields for
+untouched choices, otherwise send only explicit node_ids_add/node_ids_remove;
+merge these against committed state in the existing mutation transaction.
